@@ -64,69 +64,67 @@
 
   <script src="/common.js"></script>
   <script>
-    const connectionStatus = document.getElementById('connectionStatus');
-    const dataDate = document.getElementById('dataDate');
-    const lastUpdatedAt = document.getElementById('lastUpdatedAt');
-    const summaryBody = document.getElementById('summaryBody');
-    const sessionBody = document.getElementById('sessionBody');
-    const messageEl = document.getElementById('message');
+    var connectionStatus = document.getElementById('connectionStatus');
+    var dataDate = document.getElementById('dataDate');
+    var lastUpdatedAt = document.getElementById('lastUpdatedAt');
+    var summaryBody = document.getElementById('summaryBody');
+    var sessionBody = document.getElementById('sessionBody');
+    var messageEl = document.getElementById('message');
 
-    function setMessage(text, type = '') {
+    function setMessage(text, type) {
+      if (type === undefined) type = '';
       messageEl.textContent = text;
-      messageEl.className = `message ${type} no-print`;
+      messageEl.className = 'message ' + type + ' no-print';
     }
 
     function setConnection(text, ok) {
       connectionStatus.textContent = text;
-      connectionStatus.className = `status ${ok ? 'ok' : 'bad'}`;
+      connectionStatus.className = 'status ' + (ok ? 'ok' : 'bad');
     }
 
     function renderSummary(data, summary) {
       dataDate.textContent = data.date || '-';
       lastUpdatedAt.textContent = data.lastUpdatedAt || '-';
 
-      summaryBody.innerHTML = summary.map(row => `
-        <tr>
-          <td><strong>第 ${row.questionNo} 題</strong></td>
-          <td>${row.printCount}</td>
-        </tr>
-      `).join('');
+      var out = '';
+      for (var si = 0; si < summary.length; si++) {
+        var row = summary[si];
+        out += '<tr><td><strong>第 ' + row.questionNo + ' 題</strong></td><td>' + row.printCount + '</td></tr>';
+      }
+      summaryBody.innerHTML = out;
 
-      sessionBody.innerHTML = data.sessions.map(session => {
-        const cells = [1, 2, 3].map(i => {
-          const record = session.records.find(r => Number(r.candidateNo) === i);
-          if (!record) return '<td>-</td>';
-          if (record.absent) return `<td><span class="absent-text">${formatQuestion(record.questionNo)} 缺</span></td>`;
-          return `<td>${formatQuestion(record.questionNo)}</td>`;
-        }).join('');
-        return `
-          <tr>
-            <td><strong>第 ${session.sessionNo} 場（${session.period}）</strong></td>
-            ${cells}
-          </tr>
-        `;
-      }).join('');
+      var out2 = '';
+      for (var s = 0; s < data.sessions.length; s++) {
+        var session = data.sessions[s];
+        var cells = '';
+        for (var i = 1; i <= 3; i++) {
+          var record = null;
+          for (var ri = 0; ri < session.records.length; ri++) {
+            if (Number(session.records[ri].candidateNo) === i) { record = session.records[ri]; break; }
+          }
+          if (!record) cells += '<td>-</td>';
+          else if (record.absent) cells += '<td><span class="absent-text">' + formatQuestion(record.questionNo) + ' 缺</span></td>';
+          else cells += '<td>' + formatQuestion(record.questionNo) + '</td>';
+        }
+        out2 += '<tr><td><strong>第 ' + session.sessionNo + ' 場（' + session.period + '）</strong></td>' + cells + '</tr>';
+      }
+      sessionBody.innerHTML = out2;
     }
 
-    document.getElementById('printBtn').addEventListener('click', () => window.print());
+    document.getElementById('printBtn').addEventListener('click', function() { window.print(); });
 
-    document.getElementById('resetBtn').addEventListener('click', async () => {
-      const ok = confirm('確定要清除今日所有場次資料嗎？建議先列印或確認補印清單後再清除。');
+    document.getElementById('resetBtn').addEventListener('click', function() {
+      var ok = confirm('確定要清除今日所有場次資料嗎？建議先列印或確認補印清單後再清除。');
       if (!ok) return;
-
-      try {
-        const result = await apiPost('/api/reset', {});
+      apiPost('/api/reset', {}).then(function(result) {
         renderSummary(result.data, result.summary);
         setMessage('已清除今日資料。', 'ok');
-      } catch (error) {
-        setMessage(error.message, 'error');
-      }
+      }).catch(function(error) { setMessage(error.message, 'error'); });
     });
 
     connectStateSocket(renderSummary, setConnection);
 
-    apiGetState().then(({ data, summary }) => renderSummary(data, summary))
-      .catch(error => setMessage(error.message, 'error'));
+    apiGetState().then(function(res) { renderSummary(res.data, res.summary); }).catch(function(error) { setMessage(error.message, 'error'); });
   </script>
 </body>
 </html>

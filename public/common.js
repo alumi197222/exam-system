@@ -1,96 +1,165 @@
 function wsUrl() {
-  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//${location.host}`;
+  var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return protocol + '//' + location.host;
 }
 
 function connectStateSocket(onState, onStatus) {
-  let ws;
-  let reconnectTimer;
+  var ws;
+  var reconnectTimer;
+  var pollingTimer;
+  var lastPayloadJson = null;
 
   function setStatus(text, ok) {
     if (typeof onStatus === 'function') onStatus(text, ok);
   }
 
-  function connect() {
+  function stopPolling() {
+    if (pollingTimer) {
+      clearInterval(pollingTimer);
+      pollingTimer = null;
+    }
+  }
+
+  function startPolling(interval) {
+    if (typeof interval !== 'number') interval = 1500;
+    stopPolling();
+    function pollOnce() {
+      apiGetState().then(function(res) {
+        var payload = res;
+        var json = JSON.stringify(payload);
+        if (json !== lastPayloadJson) {
+          lastPayloadJson = json;
+          if (typeof onState === 'function') onState(payload.data, payload.summary);
+        }
+        setStatus('已連線（輪詢）', true);
+      }).catch(function() {
+        setStatus('輪詢讀取失敗', false);
+      });
+    }
+    pollOnce();
+    pollingTimer = setInterval(pollOnce, interval);
+  }
+
+  function connectWebSocket() {
+    if (typeof WebSocket === 'undefined') throw new Error('WebSocket not supported');
     ws = new WebSocket(wsUrl());
 
-    ws.addEventListener('open', () => {
+    ws.addEventListener('open', function() {
       setStatus('已連線', true);
     });
 
-    ws.addEventListener('message', event => {
+    ws.addEventListener('message', function(event) {
       try {
-        const message = JSON.parse(event.data);
+        var message = JSON.parse(event.data);
         if (message.type === 'state') {
-          onState(message.data, message.summary);
+          lastPayloadJson = JSON.stringify({ data: message.data, summary: message.summary });
+          if (typeof onState === 'function') onState(message.data, message.summary);
         }
       } catch (error) {
         console.error('WebSocket 訊息解析失敗', error);
       }
     });
 
-    ws.addEventListener('close', () => {
-      setStatus('連線中斷，嘗試重新連線中', false);
+    ws.addEventListener('close', function() {
+      setStatus('WebSocket 連線中斷，改用輪詢', false);
       clearTimeout(reconnectTimer);
-      reconnectTimer = setTimeout(connect, 1500);
+      ws = null;
+      startPolling();
     });
 
-    ws.addEventListener('error', () => {
-      setStatus('連線異常', false);
+    ws.addEventListener('error', function() {
+      setStatus('WebSocket 連線異常，改用輪詢', false);
+      try { if (ws) ws.close(); } catch (e) {}
+      ws = null;
+      startPolling();
     });
   }
 
-  connect();
+  try {
+    connectWebSocket();
+  } catch (e) {
+    startPolling();
+  }
 
   return {
     close() {
       clearTimeout(reconnectTimer);
-      if (ws) ws.close();
+      try { if (ws) ws.close(); } catch (e) {}
+      stopPolling();
     }
   };
 }
 
-async function apiGetState() {
-  const response = await fetch('/api/state');
-  if (!response.ok) throw new Error('讀取資料失敗');
-  return response.json();
+function apiGetState() {
+  return new Promise(function(resolve, reject) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/state', true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState !== 4) return;
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          var data = JSON.parse(xhr.responseText);
+          resolve(data);
+        } catch (e) {
+          reject(new Error('解析回應失敗'));
+        }
+      } else {
+        reject(new Error('讀取資料失敗'));
+      }
+    };
+    xhr.onerror = function() { reject(new Error('網路錯誤')); };
+    try { xhr.send(); } catch (e) { reject(e); }
+  });
 }
 
-async function apiPost(url, body = {}) {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+function apiPost(url, body) {
+  if (body === undefined) body = {};
+  return new Promise(function(resolve, reject) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', url, true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState !== 4) return;
+      try {
+        var data = JSON.parse(xhr.responseText || '{}');
+      } catch (e) {
+        return reject(new Error('解析回應失敗'));
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(data);
+      } else {
+        reject(new Error((data && data.error) ? data.error : '操作失敗'));
+      }
+    };
+    xhr.onerror = function() { reject(new Error('網路錯誤')); };
+    try { xhr.send(JSON.stringify(body)); } catch (e) { reject(e); }
   });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || '操作失敗');
-  return data;
 }
 
 function questionOptions(selectedValue) {
-  let html = '<option value="">請選擇</option>';
-  for (let i = 1; i <= 12; i++) {
-    html += `<option value="${i}" ${Number(selectedValue) === i ? 'selected' : ''}>第 ${i} 題</option>`;
+  var html = '<option value="">請選擇</option>';
+  for (var i = 1; i <= 12; i++) {
+    html += '<option value="' + i + '" ' + (Number(selectedValue) === i ? 'selected' : '') + '>第 ' + i + ' 題</option>';
   }
   return html;
 }
 
 function formatQuestion(questionNo) {
-  const n = Number(questionNo);
-  return n >= 1 && n <= 12 ? `第 ${n} 題` : '未登錄';
+  var n = Number(questionNo);
+  return n >= 1 && n <= 12 ? '第 ' + n + ' 題' : '未登錄';
 }
 
 function nowParts() {
-  const now = new Date();
-  const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  const hh = String(now.getHours()).padStart(2, '0');
-  const mi = String(now.getMinutes()).padStart(2, '0');
-  const ss = String(now.getSeconds()).padStart(2, '0');
+  var now = new Date();
+  var weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+  var yyyy = now.getFullYear();
+  var mm = ('0' + (now.getMonth() + 1)).slice(-2);
+  var dd = ('0' + now.getDate()).slice(-2);
+  var hh = ('0' + now.getHours()).slice(-2);
+  var mi = ('0' + now.getMinutes()).slice(-2);
+  var ss = ('0' + now.getSeconds()).slice(-2);
   return {
-    date: `${yyyy}/${mm}/${dd}（週${weekdays[now.getDay()]}）`,
-    time: `${hh}:${mi}:${ss}`
+    date: yyyy + '/' + mm + '/' + dd + '（週' + weekdays[now.getDay()] + '）',
+    time: hh + ':' + mi + ':' + ss
   };
 }

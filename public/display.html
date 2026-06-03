@@ -31,12 +31,12 @@
 
   <script src="/common.js"></script>
   <script>
-    const clock = document.getElementById('clock');
-    const dateLine = document.getElementById('dateLine');
-    const connectionStatus = document.getElementById('connectionStatus');
-    const sessionTitle = document.getElementById('sessionTitle');
-    const candidateGrid = document.getElementById('candidateGrid');
-    const lastUpdatedAt = document.getElementById('lastUpdatedAt');
+    var clock = document.getElementById('clock');
+    var dateLine = document.getElementById('dateLine');
+    var connectionStatus = document.getElementById('connectionStatus');
+    var sessionTitle = document.getElementById('sessionTitle');
+    var candidateGrid = document.getElementById('candidateGrid');
+    var lastUpdatedAt = document.getElementById('lastUpdatedAt');
 
     function updateClock() {
       const parts = nowParts();
@@ -50,22 +50,30 @@
     }
 
     function renderDisplay(data) {
-      const current = Number(data.currentSession || 1);
-      const session = data.sessions.find(s => Number(s.sessionNo) === current);
-      sessionTitle.textContent = `今日第 ${current} 場（${session?.period || ''}）`;
+      var current = Number(data.currentSession || 1);
+      var session = null;
+      for (var si = 0; si < (data.sessions || []).length; si++) {
+        if (Number(data.sessions[si].sessionNo) === current) { session = data.sessions[si]; break; }
+      }
+      var periodText = (session && session.period) ? session.period : '';
+      sessionTitle.textContent = '今日第 ' + current + ' 場（' + periodText + '）';
       lastUpdatedAt.textContent = data.lastUpdatedAt || '-';
 
-      const records = session?.records || [];
-      candidateGrid.innerHTML = [1, 2, 3].map(i => {
-        const record = records.find(r => Number(r.candidateNo) === i) || { candidateNo: i, questionNo: null, absent: false };
-        const text = formatQuestion(record.questionNo) + (record.absent ? ' 缺' : '');
-        return `
-          <div class="candidate-card">
-            <div class="candidate-label">考生 ${i}</div>
-            <div class="question-display ${record.absent ? 'absent' : ''}">${text}</div>
-          </div>
-        `;
-      }).join('');
+      var records = (session && session.records) ? session.records : [];
+      var html = '';
+      for (var i = 1; i <= 3; i++) {
+        var record = null;
+        for (var ri = 0; ri < records.length; ri++) {
+          if (Number(records[ri].candidateNo) === i) { record = records[ri]; break; }
+        }
+        if (!record) record = { candidateNo: i, questionNo: null, absent: false };
+        var text = formatQuestion(record.questionNo) + (record.absent ? ' 缺' : '');
+        html += '<div class="candidate-card">' +
+                '<div class="candidate-label">考生 ' + i + '</div>' +
+                '<div class="question-display ' + (record.absent ? 'absent' : '') + '">' + text + '</div>' +
+                '</div>';
+      }
+      candidateGrid.innerHTML = html;
     }
 
     updateClock();
@@ -73,7 +81,7 @@
 
     connectStateSocket(renderDisplay, setConnection);
 
-    apiGetState().then(({ data }) => renderDisplay(data));
+    apiGetState().then(function(res) { renderDisplay(res.data); }).catch(function(){});
   </script>
 </body>
 </html>

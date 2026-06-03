@@ -1,7 +1,7 @@
 {
   "date": "2026-06-03",
-  "currentSession": 1,
-  "lastUpdatedAt": "2026-06-03 08:03:44",
+  "currentSession": 5,
+  "lastUpdatedAt": "2026-06-03 13:10:33",
   "sessions": [
     {
       "sessionNo": 1,
@@ -72,17 +72,17 @@
       "records": [
         {
           "candidateNo": 1,
-          "questionNo": null,
+          "questionNo": 2,
           "absent": false
         },
         {
           "candidateNo": 2,
-          "questionNo": null,
-          "absent": false
+          "questionNo": 1,
+          "absent": true
         },
         {
           "candidateNo": 3,
-          "questionNo": null,
+          "questionNo": 4,
           "absent": false
         }
       ]
@@ -93,18 +93,18 @@
       "records": [
         {
           "candidateNo": 1,
-          "questionNo": null,
+          "questionNo": 5,
           "absent": false
         },
         {
           "candidateNo": 2,
-          "questionNo": null,
+          "questionNo": 2,
           "absent": false
         },
         {
           "candidateNo": 3,
-          "questionNo": null,
-          "absent": false
+          "questionNo": 5,
+          "absent": true
         }
       ]
     },
