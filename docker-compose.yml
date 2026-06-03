@@ -1,0 +1,12 @@
+services:
+  exam-system:
+    build: .
+    container_name: exam-system
+    restart: unless-stopped
+    ports:
+      - "8080:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3000

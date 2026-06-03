@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>樓下登錄｜考場抽題系統</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <h1>樓下抽題結果登錄</h1>
+        <div class="subtitle">固定第 1 題至第 12 題，每場次登錄 3 位考生。</div>
+      </div>
+      <div id="connectionStatus" class="status">連線中</div>
+    </div>
+
+    <div class="nav">
+      <a href="/input">樓下登錄</a>
+      <a href="/display" target="_blank">樓上顯示</a>
+      <a href="/summary">補印結算</a>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <label for="sessionNo">目前登錄場次</label>
+        <select id="sessionNo">
+          <option value="1">第 1 場（上午）</option>
+          <option value="2">第 2 場（上午）</option>
+          <option value="3">第 3 場（上午）</option>
+          <option value="4">第 4 場（下午）</option>
+          <option value="5">第 5 場（下午）</option>
+          <option value="6">第 6 場（下午）</option>
+        </select>
+        <button id="loadSessionBtn" class="secondary">載入場次資料</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>本場次考生資料</h2>
+      <div class="subtitle">缺席者可不選題號；若已選題號但標示缺席，結算時不會列入補印。</div>
+      <div class="table-wrap" style="margin-top:16px;">
+        <table>
+          <thead>
+            <tr>
+              <th>考生</th>
+              <th>抽到題號</th>
+              <th>是否缺席</th>
+            </tr>
+          </thead>
+          <tbody id="recordsBody"></tbody>
+        </table>
+      </div>
+      <div class="row" style="margin-top:16px;">
+        <button id="submitBtn">儲存並送出到樓上</button>
+        <button id="clearBtn" class="secondary">清空本場次輸入</button>
+      </div>
+      <div id="message" class="message"></div>
+    </div>
+
+    <div class="card">
+      <h2>目前系統狀態</h2>
+      <p>目前顯示場次：<strong id="currentSessionText">-</strong></p>
+      <p>最後更新時間：<strong id="lastUpdatedAt">-</strong></p>
+    </div>
+  </div>
+
+  <script src="/common.js"></script>
+  <script>
+    const sessionSelect = document.getElementById('sessionNo');
+    const recordsBody = document.getElementById('recordsBody');
+    const messageEl = document.getElementById('message');
+    const connectionStatus = document.getElementById('connectionStatus');
+    const currentSessionText = document.getElementById('currentSessionText');
+    const lastUpdatedAt = document.getElementById('lastUpdatedAt');
+
+    let state = null;
+
+    function setMessage(text, type = '') {
+      messageEl.textContent = text;
+      messageEl.className = `message ${type}`;
+    }
+
+    function setConnection(text, ok) {
+      connectionStatus.textContent = text;
+      connectionStatus.className = `status ${ok ? 'ok' : 'bad'}`;
+    }
+
+    function renderForm() {
+      const sessionNo = Number(sessionSelect.value);
+      const session = state?.sessions?.find(s => Number(s.sessionNo) === sessionNo);
+      const records = session?.records || [
+        { candidateNo: 1, questionNo: null, absent: false },
+        { candidateNo: 2, questionNo: null, absent: false },
+        { candidateNo: 3, questionNo: null, absent: false }
+      ];
+
+      recordsBody.innerHTML = records.map(record => `
+        <tr>
+          <td><strong>考生 ${record.candidateNo}</strong></td>
+          <td>
+            <select class="question-select" data-candidate="${record.candidateNo}">
+              ${questionOptions(record.questionNo)}
+            </select>
+          </td>
+          <td>
+            <label class="row" style="justify-content:center;">
+              <input type="checkbox" class="absent-check" data-candidate="${record.candidateNo}" ${record.absent ? 'checked' : ''}>
+              缺席
+            </label>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function renderState(data) {
+      state = data;
+      currentSessionText.textContent = state.currentSession ? `第 ${state.currentSession} 場` : '-';
+      lastUpdatedAt.textContent = state.lastUpdatedAt || '-';
+      renderForm();
+    }
+
+    function collectRecords() {
+      const records = [];
+      for (let i = 1; i <= 3; i++) {
+        const q = document.querySelector(`.question-select[data-candidate="${i}"]`).value;
+        const absent = document.querySelector(`.absent-check[data-candidate="${i}"]`).checked;
+        records.push({
+          candidateNo: i,
+          questionNo: q === '' ? null : Number(q),
+          absent
+        });
+      }
+      return records;
+    }
+
+    document.getElementById('loadSessionBtn').addEventListener('click', () => {
+      renderForm();
+      setMessage(`已載入第 ${sessionSelect.value} 場資料。`, 'ok');
+    });
+
+    document.getElementById('submitBtn').addEventListener('click', async () => {
+      setMessage('送出中...');
+      try {
+        const result = await apiPost('/api/update-session', {
+          sessionNo: Number(sessionSelect.value),
+          records: collectRecords()
+        });
+        renderState(result.data);
+        setMessage('已儲存，樓上顯示頁會即時更新。', 'ok');
+      } catch (error) {
+        setMessage(error.message, 'error');
+      }
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      document.querySelectorAll('.question-select').forEach(select => select.value = '');
+      document.querySelectorAll('.absent-check').forEach(check => check.checked = false);
+      setMessage('已清空畫面上的本場次輸入，尚未送出。', 'ok');
+    });
+
+    sessionSelect.addEventListener('change', renderForm);
+
+    connectStateSocket(renderState, setConnection);
+
+    apiGetState().then(({ data }) => {
+      sessionSelect.value = String(data.currentSession || 1);
+      renderState(data);
+    }).catch(error => setMessage(error.message, 'error'));
+  </script>
+</body>
+</html>

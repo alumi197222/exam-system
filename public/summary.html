@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>補印結算｜考場抽題系統</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <h1>補印結算</h1>
+        <div class="subtitle">只統計到考考生抽到的題號，缺席者不列入補印。</div>
+      </div>
+      <div id="connectionStatus" class="status">連線中</div>
+    </div>
+
+    <div class="nav no-print">
+      <a href="/input">樓下登錄</a>
+      <a href="/display" target="_blank">樓上顯示</a>
+      <a href="/summary">補印結算</a>
+    </div>
+
+    <div class="card">
+      <h2>今日補印清單</h2>
+      <p>資料日期：<strong id="dataDate">-</strong></p>
+      <p>最後更新時間：<strong id="lastUpdatedAt">-</strong></p>
+      <div class="row no-print" style="margin:16px 0;">
+        <button id="printBtn" class="print">列印補印清單</button>
+        <button id="resetBtn" class="danger">結算後清除今日資料</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>題號</th>
+              <th>補印份數</th>
+            </tr>
+          </thead>
+          <tbody id="summaryBody"></tbody>
+        </table>
+      </div>
+      <div id="message" class="message no-print"></div>
+    </div>
+
+    <div class="card no-print">
+      <h2>各場次紀錄</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>場次</th>
+              <th>考生1</th>
+              <th>考生2</th>
+              <th>考生3</th>
+            </tr>
+          </thead>
+          <tbody id="sessionBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="/common.js"></script>
+  <script>
+    const connectionStatus = document.getElementById('connectionStatus');
+    const dataDate = document.getElementById('dataDate');
+    const lastUpdatedAt = document.getElementById('lastUpdatedAt');
+    const summaryBody = document.getElementById('summaryBody');
+    const sessionBody = document.getElementById('sessionBody');
+    const messageEl = document.getElementById('message');
+
+    function setMessage(text, type = '') {
+      messageEl.textContent = text;
+      messageEl.className = `message ${type} no-print`;
+    }
+
+    function setConnection(text, ok) {
+      connectionStatus.textContent = text;
+      connectionStatus.className = `status ${ok ? 'ok' : 'bad'}`;
+    }
+
+    function renderSummary(data, summary) {
+      dataDate.textContent = data.date || '-';
+      lastUpdatedAt.textContent = data.lastUpdatedAt || '-';
+
+      summaryBody.innerHTML = summary.map(row => `
+        <tr>
+          <td><strong>第 ${row.questionNo} 題</strong></td>
+          <td>${row.printCount}</td>
+        </tr>
+      `).join('');
+
+      sessionBody.innerHTML = data.sessions.map(session => {
+        const cells = [1, 2, 3].map(i => {
+          const record = session.records.find(r => Number(r.candidateNo) === i);
+          if (!record) return '<td>-</td>';
+          if (record.absent) return `<td><span class="absent-text">${formatQuestion(record.questionNo)} 缺</span></td>`;
+          return `<td>${formatQuestion(record.questionNo)}</td>`;
+        }).join('');
+        return `
+          <tr>
+            <td><strong>第 ${session.sessionNo} 場（${session.period}）</strong></td>
+            ${cells}
+          </tr>
+        `;
+      }).join('');
+    }
+
+    document.getElementById('printBtn').addEventListener('click', () => window.print());
+
+    document.getElementById('resetBtn').addEventListener('click', async () => {
+      const ok = confirm('確定要清除今日所有場次資料嗎？建議先列印或確認補印清單後再清除。');
+      if (!ok) return;
+
+      try {
+        const result = await apiPost('/api/reset', {});
+        renderSummary(result.data, result.summary);
+        setMessage('已清除今日資料。', 'ok');
+      } catch (error) {
+        setMessage(error.message, 'error');
+      }
+    });
+
+    connectStateSocket(renderSummary, setConnection);
+
+    apiGetState().then(({ data, summary }) => renderSummary(data, summary))
+      .catch(error => setMessage(error.message, 'error'));
+  </script>
+</body>
+</html>

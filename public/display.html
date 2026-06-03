@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>樓上顯示｜考場抽題系統</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="display-body">
+  <div class="display-container">
+    <div class="display-top">
+      <div>
+        <div class="display-title">考場抽題顯示系統</div>
+        <div class="date-line" id="dateLine">-</div>
+      </div>
+      <div>
+        <div class="clock" id="clock">--:--:--</div>
+        <div class="date-line" id="connectionStatus">連線中</div>
+      </div>
+    </div>
+
+    <div class="session-panel">
+      <div class="session-title" id="sessionTitle">今日第 - 場</div>
+      <div class="candidate-grid" id="candidateGrid"></div>
+      <div class="footer-line">
+        <span>最後更新時間：<strong id="lastUpdatedAt">-</strong></span>
+        <span>本頁會即時更新，無需重新整理</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="/common.js"></script>
+  <script>
+    const clock = document.getElementById('clock');
+    const dateLine = document.getElementById('dateLine');
+    const connectionStatus = document.getElementById('connectionStatus');
+    const sessionTitle = document.getElementById('sessionTitle');
+    const candidateGrid = document.getElementById('candidateGrid');
+    const lastUpdatedAt = document.getElementById('lastUpdatedAt');
+
+    function updateClock() {
+      const parts = nowParts();
+      clock.textContent = parts.time;
+      dateLine.textContent = parts.date;
+    }
+
+    function setConnection(text, ok) {
+      connectionStatus.textContent = text;
+      connectionStatus.style.color = ok ? '#bbf7d0' : '#fecaca';
+    }
+
+    function renderDisplay(data) {
+      const current = Number(data.currentSession || 1);
+      const session = data.sessions.find(s => Number(s.sessionNo) === current);
+      sessionTitle.textContent = `今日第 ${current} 場（${session?.period || ''}）`;
+      lastUpdatedAt.textContent = data.lastUpdatedAt || '-';
+
+      const records = session?.records || [];
+      candidateGrid.innerHTML = [1, 2, 3].map(i => {
+        const record = records.find(r => Number(r.candidateNo) === i) || { candidateNo: i, questionNo: null, absent: false };
+        const text = formatQuestion(record.questionNo) + (record.absent ? ' 缺' : '');
+        return `
+          <div class="candidate-card">
+            <div class="candidate-label">考生 ${i}</div>
+            <div class="question-display ${record.absent ? 'absent' : ''}">${text}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    connectStateSocket(renderDisplay, setConnection);
+
+    apiGetState().then(({ data }) => renderDisplay(data));
+  </script>
+</body>
+</html>

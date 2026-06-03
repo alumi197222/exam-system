@@ -1,0 +1,133 @@
+{
+  "date": "2026-06-03",
+  "currentSession": 1,
+  "lastUpdatedAt": "2026-06-03 08:03:44",
+  "sessions": [
+    {
+      "sessionNo": 1,
+      "period": "上午",
+      "records": [
+        {
+          "candidateNo": 1,
+          "questionNo": 1,
+          "absent": true
+        },
+        {
+          "candidateNo": 2,
+          "questionNo": 11,
+          "absent": false
+        },
+        {
+          "candidateNo": 3,
+          "questionNo": 10,
+          "absent": false
+        }
+      ]
+    },
+    {
+      "sessionNo": 2,
+      "period": "上午",
+      "records": [
+        {
+          "candidateNo": 1,
+          "questionNo": null,
+          "absent": false
+        },
+        {
+          "candidateNo": 2,
+          "questionNo": null,
+          "absent": false
+        },
+        {
+          "candidateNo": 3,
+          "questionNo": null,
+          "absent": false
+        }
+      ]
+    },
+    {
+      "sessionNo": 3,
+      "period": "上午",
+      "records": [
+        {
+          "candidateNo": 1,
+          "questionNo": null,
+          "absent": false
+        },
+        {
+          "candidateNo": 2,
+          "questionNo": null,
+          "absent": false
+        },
+        {
+          "candidateNo": 3,
+          "questionNo": null,
+          "absent": false
+        }
+      ]
+    },
+    {
+      "sessionNo": 4,
+      "period": "下午",
+      "records": [
+        {
+          "candidateNo": 1,
+          "questionNo": null,
+          "absent": false
+        },
+        {
+          "candidateNo": 2,
+          "questionNo": null,
+          "absent": false
+        },
+        {
+          "candidateNo": 3,
+          "questionNo": null,
+          "absent": false
+        }
+      ]
+    },
+    {
+      "sessionNo": 5,
+      "period": "下午",
+      "records": [
+        {
+          "candidateNo": 1,
+          "questionNo": null,
+          "absent": false
+        },
+        {
+          "candidateNo": 2,
+          "questionNo": null,
+          "absent": false
+        },
+        {
+          "candidateNo": 3,
+          "questionNo": null,
+          "absent": false
+        }
+      ]
+    },
+    {
+      "sessionNo": 6,
+      "period": "下午",
+      "records": [
+        {
+          "candidateNo": 1,
+          "questionNo": null,
+          "absent": false
+        },
+        {
+          "candidateNo": 2,
+          "questionNo": null,
+          "absent": false
+        },
+        {
+          "candidateNo": 3,
+          "questionNo": null,
+          "absent": false
+        }
+      ]
+    }
+  ]
+}
