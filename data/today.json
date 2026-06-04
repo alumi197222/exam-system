@@ -1,7 +1,7 @@
 {
-  "date": "2026-06-03",
-  "currentSession": 5,
-  "lastUpdatedAt": "2026-06-03 13:10:33",
+  "date": "2026-06-04",
+  "currentSession": 2,
+  "lastUpdatedAt": "2026-06-04 08:50:25",
   "sessions": [
     {
       "sessionNo": 1,
@@ -9,17 +9,17 @@
       "records": [
         {
           "candidateNo": 1,
-          "questionNo": 1,
-          "absent": true
-        },
-        {
-          "candidateNo": 2,
-          "questionNo": 11,
+          "questionNo": 12,
           "absent": false
         },
         {
+          "candidateNo": 2,
+          "questionNo": 13,
+          "absent": true
+        },
+        {
           "candidateNo": 3,
-          "questionNo": 10,
+          "questionNo": 14,
           "absent": false
         }
       ]
@@ -30,18 +30,18 @@
       "records": [
         {
           "candidateNo": 1,
-          "questionNo": null,
-          "absent": false
+          "questionNo": 12,
+          "absent": true
         },
         {
           "candidateNo": 2,
-          "questionNo": null,
+          "questionNo": 13,
           "absent": false
         },
         {
           "candidateNo": 3,
-          "questionNo": null,
-          "absent": false
+          "questionNo": 14,
+          "absent": true
         }
       ]
     },
@@ -72,17 +72,17 @@
       "records": [
         {
           "candidateNo": 1,
-          "questionNo": 2,
+          "questionNo": null,
           "absent": false
         },
         {
           "candidateNo": 2,
-          "questionNo": 1,
-          "absent": true
+          "questionNo": null,
+          "absent": false
         },
         {
           "candidateNo": 3,
-          "questionNo": 4,
+          "questionNo": null,
           "absent": false
         }
       ]
@@ -93,18 +93,18 @@
       "records": [
         {
           "candidateNo": 1,
-          "questionNo": 5,
+          "questionNo": null,
           "absent": false
         },
         {
           "candidateNo": 2,
-          "questionNo": 2,
+          "questionNo": null,
           "absent": false
         },
         {
           "candidateNo": 3,
-          "questionNo": 5,
-          "absent": true
+          "questionNo": null,
+          "absent": false
         }
       ]
     },

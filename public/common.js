@@ -136,9 +136,18 @@ function apiPost(url, body) {
   });
 }
 
+function getQuestionCount() {
+  var count = 15;
+  if (typeof window !== 'undefined' && window.APP_CONFIG && window.APP_CONFIG.questionCount !== undefined) {
+    count = Number(window.APP_CONFIG.questionCount);
+  }
+  return Number.isInteger(count) && count > 0 ? count : 15;
+}
+
 function questionOptions(selectedValue) {
   var html = '<option value="">請選擇</option>';
-  for (var i = 1; i <= 12; i++) {
+  var questionCount = getQuestionCount();
+  for (var i = 1; i <= questionCount; i++) {
     html += '<option value="' + i + '" ' + (Number(selectedValue) === i ? 'selected' : '') + '>第 ' + i + ' 題</option>';
   }
   return html;
@@ -146,7 +155,7 @@ function questionOptions(selectedValue) {
 
 function formatQuestion(questionNo) {
   var n = Number(questionNo);
-  return n >= 1 && n <= 12 ? '第 ' + n + ' 題' : '未登錄';
+  return n >= 1 && n <= getQuestionCount() ? '第 ' + n + ' 題' : '未登錄';
 }
 
 function nowParts() {

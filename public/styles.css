@@ -195,7 +195,7 @@ th {
 
 .clock {
   text-align: right;
-  font-size: clamp(28px, 3vw, 54px);
+  font-size: clamp(2rem, 6vw, 8rem);
   font-weight: 900;
   color: #bfdbfe;
 }

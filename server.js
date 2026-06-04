@@ -5,6 +5,7 @@ const http = require('http');
 const WebSocket = require('ws');
 
 const PORT = process.env.PORT || 3000;
+const QUESTION_COUNT = 15;
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'today.json');
 
@@ -123,7 +124,7 @@ function writeData(data) {
 }
 
 function getSummary(data) {
-  const counts = Array.from({ length: 12 }, (_, index) => ({
+  const counts = Array.from({ length: QUESTION_COUNT }, (_, index) => ({
     questionNo: index + 1,
     printCount: 0
   }));
@@ -131,7 +132,7 @@ function getSummary(data) {
   data.sessions.forEach(session => {
     session.records.forEach(record => {
       const q = Number(record.questionNo);
-      if (!record.absent && q >= 1 && q <= 12) {
+      if (!record.absent && q >= 1 && q <= QUESTION_COUNT) {
         counts[q - 1].printCount += 1;
       }
     });
@@ -165,6 +166,12 @@ app.get('/summary', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'summary.html'));
 });
 
+app.get('/config.js', (req, res) => {
+  res.type('application/javascript');
+  res.set('Cache-Control', 'no-store');
+  res.send(`window.APP_CONFIG = ${JSON.stringify({ questionCount: QUESTION_COUNT })};`);
+});
+
 app.get('/api/state', (req, res) => {
   const data = readData();
   res.json({ data, summary: getSummary(data) });
@@ -187,12 +194,12 @@ app.post('/api/update-session', (req, res) => {
       const questionNo = record.questionNo === null || record.questionNo === '' ? null : Number(record.questionNo);
       const absent = Boolean(record.absent);
 
-      if (!absent && (!Number.isInteger(questionNo) || questionNo < 1 || questionNo > 12)) {
-        throw new Error(`考生 ${index + 1} 到考時，題號必須是 1 到 12。`);
+      if (!absent && (!Number.isInteger(questionNo) || questionNo < 1 || questionNo > QUESTION_COUNT)) {
+        throw new Error(`考生 ${index + 1} 到考時，題號必須是 1 到 ${QUESTION_COUNT}。`);
       }
 
-      if (questionNo !== null && (!Number.isInteger(questionNo) || questionNo < 1 || questionNo > 12)) {
-        throw new Error(`考生 ${index + 1} 題號必須是 1 到 12。`);
+      if (questionNo !== null && (!Number.isInteger(questionNo) || questionNo < 1 || questionNo > QUESTION_COUNT)) {
+        throw new Error(`考生 ${index + 1} 題號必須是 1 到 ${QUESTION_COUNT}。`);
       }
 
       return {

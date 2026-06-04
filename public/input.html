@@ -11,7 +11,7 @@
     <div class="header">
       <div>
         <h1>樓下抽題結果登錄</h1>
-        <div class="subtitle">固定第 1 題至第 12 題，每場次登錄 3 位考生。</div>
+        <div class="subtitle" id="questionRangeSubtitle">題號範圍由系統設定，每場次登錄 3 位考生。</div>
       </div>
       <div id="connectionStatus" class="status">連線中</div>
     </div>
@@ -66,6 +66,7 @@
     </div>
   </div>
 
+  <script src="/config.js"></script>
   <script src="/common.js"></script>
   <script>
     var sessionSelect = document.getElementById('sessionNo');
@@ -74,8 +75,13 @@
     var connectionStatus = document.getElementById('connectionStatus');
     var currentSessionText = document.getElementById('currentSessionText');
     var lastUpdatedAt = document.getElementById('lastUpdatedAt');
+    var questionRangeSubtitle = document.getElementById('questionRangeSubtitle');
 
     var state = null;
+
+    if (questionRangeSubtitle) {
+      questionRangeSubtitle.textContent = '固定第 1 題至第 ' + getQuestionCount() + ' 題，每場次登錄 3 位考生。';
+    }
 
     function setMessage(text, type) {
       if (type === undefined) type = '';
