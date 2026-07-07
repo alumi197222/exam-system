@@ -56,7 +56,8 @@ function getAdminAuthCookie(req) {
 
 function isAdminAuthenticated(req) {
   const expectedToken = getAdminAuthToken();
-  if (!expectedToken) return false;
+
+  if (!expectedToken) return true;  //沒有設定管理密碼時，任何人都可以登入
   return getAdminAuthCookie(req) === expectedToken;
 }
 
