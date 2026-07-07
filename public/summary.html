@@ -17,8 +17,8 @@
     </div>
 
     <div class="nav no-print">
-      <a href="/input">樓下登錄</a>
-      <a href="/display" target="_blank">樓上顯示</a>
+      <a href="/input">抽題登入</a>
+      <a href="/display" target="_blank">顯示抽題結果</a>
       <a href="/summary">補印結算</a>
     </div>
 
@@ -26,10 +26,22 @@
       <h2>今日補印清單</h2>
       <p>資料日期：<strong id="dataDate">-</strong></p>
       <p>最後更新時間：<strong id="lastUpdatedAt">-</strong></p>
-      <div class="row no-print" style="margin:16px 0;">
-        <button id="printBtn" class="print">列印補印清單</button>
-        <button id="resetBtn" class="danger">結算後清除今日資料</button>
+      <p>抽題顯示登入密碼：<strong id="displayPassword" class="display-password-badge">-</strong><button id="showQrBtn" class="secondary">顯示 QRCode</button></p>
+      <p>密碼產生時間：<strong id="displayPasswordGeneratedAt">-</strong></p>
+      <p class="subtitle">密碼每天早上 4:00 自動更新，登入後可維持 12 小時。</p>
+      <div class="row no-print" style="margin:16px 0; align-items:flex-end;">
+        <div>
+          <label for="refreshLoginAction">強制更新後的登入資訊</label>
+          <select id="refreshLoginAction">
+            <option value="keep">保留原本登入資訊</option>
+            <option value="delete">刪除原本登入資訊</option>
+          </select>
+        </div>
+        <button id="refreshPasswordBtn" class="secondary">強制更新密碼</button>
+        
       </div>
+      <button id="printBtn" class="print">列印補印清單</button>
+      <button id="resetBtn" class="danger">結算後清除今日資料</button>
       <div class="table-wrap">
         <table>
           <thead>
@@ -51,13 +63,30 @@
           <thead>
             <tr>
               <th>場次</th>
-              <th>考生1</th>
-              <th>考生2</th>
-              <th>考生3</th>
+              <th>崗位1</th>
+              <th>崗位2</th>
+              <th>崗位3</th>
             </tr>
           </thead>
           <tbody id="sessionBody"></tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="qrModal" class="qr-modal no-print" aria-hidden="true">
+    <div class="qr-modal-backdrop"></div>
+    <div class="qr-modal-panel" role="dialog" aria-modal="true" aria-labelledby="qrModalTitle">
+      <div class="qr-modal-header">
+        <div>
+          <div id="qrModalTitle" class="qr-modal-title">抽題顯示登入 QRCode</div>
+          <div class="qr-modal-subtitle">掃描後會直接開啟登入網址並自動登入。</div>
+        </div>
+        <button id="closeQrBtn" class="secondary" type="button">關閉</button>
+      </div>
+        <div id="qrModalContent" class="qr-modal-content">
+          <div class="qr-modal-loading">載入中...</div>
+        </div>
       </div>
     </div>
   </div>
@@ -68,9 +97,22 @@
     var connectionStatus = document.getElementById('connectionStatus');
     var dataDate = document.getElementById('dataDate');
     var lastUpdatedAt = document.getElementById('lastUpdatedAt');
+    var displayPassword = document.getElementById('displayPassword');
+    var displayPasswordGeneratedAt = document.getElementById('displayPasswordGeneratedAt');
+    var refreshLoginAction = document.getElementById('refreshLoginAction');
+    var refreshPasswordBtn = document.getElementById('refreshPasswordBtn');
+    var showQrBtn = document.getElementById('showQrBtn');
+    var resetBtn = document.getElementById('resetBtn');
+    var qrModal = document.getElementById('qrModal');
+    var qrModalContent = document.getElementById('qrModalContent');
+    var closeQrBtn = document.getElementById('closeQrBtn');
     var summaryBody = document.getElementById('summaryBody');
     var sessionBody = document.getElementById('sessionBody');
     var messageEl = document.getElementById('message');
+
+    if (window.APP_CONFIG && window.APP_CONFIG.useLiveState) {
+      if (resetBtn) resetBtn.style.display = 'none';
+    }
 
     function setMessage(text, type) {
       if (type === undefined) type = '';
@@ -83,9 +125,43 @@
       connectionStatus.className = 'status ' + (ok ? 'ok' : 'bad');
     }
 
+    function openQrModal() {
+      if (!qrModal) return;
+      qrModal.classList.add('open');
+      qrModal.setAttribute('aria-hidden', 'false');
+      qrModalContent.innerHTML = '<div class="qr-modal-loading">載入中...</div>';
+
+      var password = displayPassword ? String(displayPassword.textContent || '').trim() : '';
+      if (!password || password === '-') {
+        qrModalContent.innerHTML = '<div class="qr-modal-error">目前沒有可用的登入密碼。</div>';
+        return;
+      }
+
+      var loginUrl = window.location.origin + '/display/login/' + encodeURIComponent(password);
+
+      apiGetText('/api/display-password-qr').then(function(svg) {
+        qrModalContent.innerHTML = '' +
+          '<div class="qr-modal-qr">' + svg + '</div>' +
+          '<div class="qr-modal-url-label">登入網址</div>' +
+          '<div class="qr-modal-url">' + loginUrl + '</div>' +
+          '<div class="qr-modal-password-label">目前密碼</div>' +
+          '<div class="qr-modal-password">' + password + '</div>';
+      }).catch(function(error) {
+        qrModalContent.innerHTML = '<div class="qr-modal-error">' + (error.message || '載入失敗。') + '</div>';
+      });
+    }
+
+    function closeQrModal() {
+      if (!qrModal) return;
+      qrModal.classList.remove('open');
+      qrModal.setAttribute('aria-hidden', 'true');
+    }
+
     function renderSummary(data, summary) {
       dataDate.textContent = data.date || '-';
       lastUpdatedAt.textContent = data.lastUpdatedAt || '-';
+      displayPassword.textContent = data.displayPassword || '-';
+      displayPasswordGeneratedAt.textContent = data.displayPasswordGeneratedAt || '-';
 
       var out = '';
       for (var si = 0; si < summary.length; si++) {
@@ -113,6 +189,38 @@
     }
 
     document.getElementById('printBtn').addEventListener('click', function() { window.print(); });
+
+    refreshPasswordBtn.addEventListener('click', function() {
+      var invalidateExistingCookies = refreshLoginAction.value === 'delete';
+      var ok = confirm(invalidateExistingCookies ? '確定要強制更新密碼，並刪除原本的登入資訊嗎？' : '確定要強制更新密碼，並保留原本的登入資訊嗎？');
+      if (!ok) return;
+
+      setMessage('密碼更新中...');
+      apiRefreshDisplayPassword(invalidateExistingCookies).then(function(result) {
+        renderSummary(result.data, result.summary);
+        setMessage(invalidateExistingCookies ? '已強制更新密碼，並刪除原本的登入資訊。' : '已強制更新密碼，並保留原本的登入資訊。', 'ok');
+      }).catch(function(error) {
+        setMessage(error.message, 'error');
+      });
+    });
+
+    if (showQrBtn) {
+      showQrBtn.addEventListener('click', function() {
+        openQrModal();
+      });
+    }
+
+    if (closeQrBtn) {
+      closeQrBtn.addEventListener('click', closeQrModal);
+    }
+
+    if (qrModal) {
+      qrModal.addEventListener('click', function(event) {
+        if (event.target === qrModal || event.target.classList.contains('qr-modal-backdrop')) {
+          closeQrModal();
+        }
+      });
+    }
 
     document.getElementById('resetBtn').addEventListener('click', function() {
       var ok = confirm('確定要清除今日所有場次資料嗎？建議先列印或確認補印清單後再清除。');

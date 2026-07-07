@@ -3,28 +3,45 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>樓上顯示｜考場抽題系統</title>
+  <title>抽題結果顯示｜考場抽題系統</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body class="display-body">
-  <div class="display-container">
-    <div class="display-top">
-      <div>
-        <div class="display-title">考場抽題顯示系統</div>
-        <div class="date-line" id="dateLine">-</div>
-      </div>
-      <div>
-        <div class="clock" id="clock">--:--:--</div>
-        <div class="date-line" id="connectionStatus">連線中</div>
-      </div>
+  <div id="displayAuthView" class="display-auth-shell">
+    <div class="display-auth-card">
+      <div class="display-auth-kicker">抽題結果顯示登入</div>
+      <div class="display-auth-title">請輸入今日密碼</div>
+      <form id="displayAuthForm" class="display-auth-form">
+        <label for="displayPasswordInput">密碼</label>
+        <input id="displayPasswordInput" class="display-auth-input" type="password" maxlength="6" autocomplete="current-password" spellcheck="false" placeholder="輸入 6 碼英數密碼">
+        <div class="display-auth-actions">
+          <button type="submit">登入</button>
+        </div>
+        <div id="displayAuthMessage" class="display-auth-error"></div>
+      </form>
     </div>
+  </div>
 
-    <div class="session-panel">
-      <div class="session-title" id="sessionTitle">今日第 - 場</div>
-      <div class="candidate-grid" id="candidateGrid"></div>
-      <div class="footer-line">
-        <span>最後更新時間：<strong id="lastUpdatedAt">-</strong></span>
-        <span>本頁會即時更新，無需重新整理</span>
+  <div id="displayApp" class="display-hidden">
+    <div class="display-container">
+      <div class="display-top">
+        <div>
+          <div class="display-title">考場抽題顯示系統</div>
+          <div class="date-line" id="dateLine">-</div>
+        </div>
+        <div>
+          <div class="clock" id="clock">--:--:--</div>
+          <div class="date-line" id="connectionStatus">連線中</div>
+        </div>
+      </div>
+
+      <div class="session-panel">
+        <div class="session-title" id="sessionTitle">今日第 - 場</div>
+        <div class="candidate-grid" id="candidateGrid"></div>
+        <div class="footer-line">
+          <span>最後更新時間：<strong id="lastUpdatedAt">-</strong></span>
+          <span>本頁會即時更新，無需重新整理</span>
+        </div>
       </div>
     </div>
   </div>
@@ -38,6 +55,114 @@
     var sessionTitle = document.getElementById('sessionTitle');
     var candidateGrid = document.getElementById('candidateGrid');
     var lastUpdatedAt = document.getElementById('lastUpdatedAt');
+    var displayAuthView = document.getElementById('displayAuthView');
+    var displayApp = document.getElementById('displayApp');
+    var displayAuthForm = document.getElementById('displayAuthForm');
+    var displayPasswordInput = document.getElementById('displayPasswordInput');
+    var displayAuthMessage = document.getElementById('displayAuthMessage');
+
+    var DISPLAY_AUTH_KEY = 'displayAuthState';
+    var DISPLAY_AUTH_DURATION_MS = 12 * 60 * 60 * 1000;  // 第一個12 ，指的是12小時，如果要修改幾個效時更改12就可以了
+    var stateSocket = null;
+    var currentStateData = null;
+
+    function setAuthMessage(text, type) {
+      if (type === undefined) type = '';
+      displayAuthMessage.textContent = text;
+      displayAuthMessage.className = 'display-auth-error ' + type;
+    }
+
+    function hasDisplayPassword(data) {
+      return !!(data && typeof data.displayPassword === 'string' && data.displayPassword.trim());
+    }
+
+    function readDisplayAuthState() {
+      var raw = localStorage.getItem(DISPLAY_AUTH_KEY);
+      if (!raw) return null;
+      try {
+        var parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return null;
+        if (!Number.isFinite(Number(parsed.expiresAt))) return null;
+        return {
+          expiresAt: Number(parsed.expiresAt),
+          version: String(parsed.version || '1')
+        };
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function isAuthLocallyValid() {
+      var auth = readDisplayAuthState();
+      return !!auth && Date.now() < auth.expiresAt;
+    }
+
+    function isAuthValidForState(data) {
+      if (!hasDisplayPassword(data)) return true;
+      var auth = readDisplayAuthState();
+      if (!auth || Date.now() >= auth.expiresAt) return false;
+      return String(auth.version || '1') === String((data && data.displayAuthVersion) || '1');
+    }
+
+    function setDisplayAuthState(version) {
+      var auth = {
+        expiresAt: Date.now() + DISPLAY_AUTH_DURATION_MS,
+        version: String(version || '1')
+      };
+      localStorage.setItem(DISPLAY_AUTH_KEY, JSON.stringify(auth));
+      return auth;
+    }
+
+    function clearDisplayAuthState() {
+      localStorage.removeItem(DISPLAY_AUTH_KEY);
+    }
+
+    function stopDisplaySocket() {
+      if (stateSocket) {
+        stateSocket.close();
+        stateSocket = null;
+      }
+    }
+
+    function showLogin(message) {
+      stopDisplaySocket();
+      currentStateData = null;
+      if (displayAuthView) displayAuthView.classList.remove('display-hidden');
+      if (displayApp) displayApp.classList.add('display-hidden');
+      if (typeof message === 'string' && message) {
+        setAuthMessage(message, 'error');
+      } else {
+        setAuthMessage('', '');
+      }
+      if (displayPasswordInput) displayPasswordInput.focus();
+    }
+
+    function showDisplay() {
+      if (displayAuthView) displayAuthView.classList.add('display-hidden');
+      if (displayApp) displayApp.classList.remove('display-hidden');
+      setAuthMessage('', '');
+    }
+
+    function lockDisplay(message) {
+      clearDisplayAuthState();
+      showLogin(message || '登入已失效，請重新登入。');
+    }
+
+    function startDisplaySocket() {
+      if (stateSocket) return;
+      stateSocket = connectStateSocket(function(data) {
+        currentStateData = data;
+        renderDisplay(data);
+      }, setConnection);
+    }
+
+    function unlockDisplay(data) {
+      setDisplayAuthState(data.displayAuthVersion);
+      currentStateData = data;
+      showDisplay();
+      startDisplaySocket();
+      renderDisplay(data);
+    }
 
     function updateClock() {
       const parts = nowParts();
@@ -51,6 +176,12 @@
     }
 
     function renderDisplay(data) {
+      currentStateData = data;
+      if (!isAuthValidForState(data)) {
+        lockDisplay('登入已失效，請重新登入。');
+        return;
+      }
+      showDisplay();
       var current = Number(data.currentSession || 1);
       var session = null;
       for (var si = 0; si < (data.sessions || []).length; si++) {
@@ -70,19 +201,81 @@
         if (!record) record = { candidateNo: i, questionNo: null, absent: false };
         var text = formatQuestion(record.questionNo) + (record.absent ? ' 缺' : '');
         html += '<div class="candidate-card">' +
-                '<div class="candidate-label">考生 ' + i + '</div>' +
+                '<div class="candidate-label">崗位 ' + i + '</div>' +
                 '<div class="question-display ' + (record.absent ? 'absent' : '') + '">' + text + '</div>' +
                 '</div>';
       }
       candidateGrid.innerHTML = html;
     }
 
+    function attemptLogin(password) {
+      setAuthMessage('登入驗證中...');
+      apiGetState().then(function(res) {
+        var data = res.data || {};
+        var currentPassword = data.displayPassword ? String(data.displayPassword) : '';
+        if (!currentPassword) {
+          currentStateData = data;
+          showDisplay();
+          startDisplaySocket();
+          renderDisplay(data);
+          return;
+        }
+        if (!password || password !== currentPassword) {
+          setAuthMessage('密碼錯誤，請重新輸入。', 'error');
+          return;
+        }
+        unlockDisplay(data);
+      }).catch(function(error) {
+        setAuthMessage(error.message || '登入失敗，請稍後再試。', 'error');
+      });
+    }
+
+    if (displayAuthForm) {
+      displayAuthForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        attemptLogin(displayPasswordInput.value.trim());
+      });
+    }
+
     updateClock();
     setInterval(updateClock, 1000);
 
-    connectStateSocket(renderDisplay, setConnection);
+    setInterval(function() {
+      var auth = readDisplayAuthState();
+      if (!auth) {
+        if (displayApp && !displayApp.classList.contains('display-hidden')) {
+          lockDisplay('登入已逾時，請重新登入。');
+        }
+        return;
+      }
 
-    apiGetState().then(function(res) { renderDisplay(res.data); }).catch(function(){});
+      if (Date.now() >= auth.expiresAt) {
+        lockDisplay('登入已逾時，請重新登入。');
+        return;
+      }
+
+      if (currentStateData && !isAuthValidForState(currentStateData)) {
+        lockDisplay('登入已失效，請重新登入。');
+      }
+    }, 30000);
+
+    apiGetState().then(function(res) {
+      var data = res.data || {};
+      currentStateData = data;
+      if (!hasDisplayPassword(data)) {
+        clearDisplayAuthState();
+        showDisplay();
+        startDisplaySocket();
+        renderDisplay(data);
+      } else if (isAuthValidForState(data)) {
+        unlockDisplay(data);
+      } else {
+        showLogin();
+        stopDisplaySocket();
+      }
+    }).catch(function(error) {
+      showLogin(error.message || '讀取顯示資料失敗。');
+    });
   </script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 {
   "date": "2026-06-04",
-  "currentSession": 2,
-  "lastUpdatedAt": "2026-06-04 08:50:25",
+  "currentSession": 3,
+  "lastUpdatedAt": "2026-07-07 10:12:38",
   "sessions": [
     {
       "sessionNo": 1,
@@ -51,17 +51,17 @@
       "records": [
         {
           "candidateNo": 1,
-          "questionNo": null,
+          "questionNo": 6,
           "absent": false
         },
         {
           "candidateNo": 2,
-          "questionNo": null,
-          "absent": false
+          "questionNo": 6,
+          "absent": true
         },
         {
           "candidateNo": 3,
-          "questionNo": null,
+          "questionNo": 6,
           "absent": false
         }
       ]
@@ -129,5 +129,9 @@
         }
       ]
     }
-  ]
+  ],
+  "displayPassword": "lWcTh7",
+  "displayPasswordDayKey": "2026-07-07",
+  "displayPasswordGeneratedAt": "2026-07-07 16:21:36",
+  "displayAuthVersion": "6"
 }
