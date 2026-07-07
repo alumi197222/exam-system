@@ -11,14 +11,14 @@
     <div class="header">
       <div>
         <h1>樓下抽題結果登錄</h1>
-        <div class="subtitle" id="questionRangeSubtitle">題號範圍由系統設定，每場次登錄 3 位考生。</div>
+        <div class="subtitle" id="questionRangeSubtitle">題號範圍由系統設定，每場次登錄 3 個崗位。</div>
       </div>
       <div id="connectionStatus" class="status">連線中</div>
     </div>
 
     <div class="nav">
-      <a href="/input">樓下登錄</a>
-      <a href="/display" target="_blank">樓上顯示</a>
+      <a href="/input">抽題登入</a>
+      <a href="/display" target="_blank">顯示抽題結果</a>
       <a href="/summary">補印結算</a>
     </div>
 
@@ -38,13 +38,13 @@
     </div>
 
     <div class="card">
-      <h2>本場次考生資料</h2>
-      <div class="subtitle">缺席者可不選題號；若已選題號但標示缺席，結算時不會列入補印。</div>
+      <h2>本場次崗位資料</h2>
+      <div class="subtitle">標示缺席，結算時不會列入補印。</div>
       <div class="table-wrap" style="margin-top:16px;">
         <table>
           <thead>
             <tr>
-              <th>考生</th>
+              <th>崗位</th>
               <th>抽到題號</th>
               <th>是否缺席</th>
             </tr>
@@ -80,7 +80,7 @@
     var state = null;
 
     if (questionRangeSubtitle) {
-      questionRangeSubtitle.textContent = '固定第 1 題至第 ' + getQuestionCount() + ' 題，每場次登錄 3 位考生。';
+      questionRangeSubtitle.textContent = '固定第 1 題至第 ' + getQuestionCount() + ' 題，每場次登錄 3 個崗位。';
     }
 
     function setMessage(text, type) {
@@ -112,7 +112,7 @@
       for (var ri = 0; ri < records.length; ri++) {
         var record = records[ri];
         out += '<tr>' +
-               '<td><strong>考生 ' + record.candidateNo + '</strong></td>' +
+               '<td><strong>崗位 ' + record.candidateNo + '</strong></td>' +
                '<td><select class="question-select" data-candidate="' + record.candidateNo + '">' + questionOptions(record.questionNo) + '</select></td>' +
                '<td><label class="row" style="justify-content:center;">' +
                '<input type="checkbox" class="absent-check" data-candidate="' + record.candidateNo + '" ' + (record.absent ? 'checked' : '') + '>' +

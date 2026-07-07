@@ -25,12 +25,29 @@ function getTodayString() {
 }
 
 function formatDateTime(date = new Date()) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  const hh = String(date.getHours()).padStart(2, '0');
-  const mm = String(date.getMinutes()).padStart(2, '0');
-  const ss = String(date.getSeconds()).padStart(2, '0');
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Taipei',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).formatToParts(date);
+
+  const values = {};
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    if (part.type !== 'literal') values[part.type] = part.value;
+  }
+
+  const y = values.year;
+  const m = values.month;
+  const d = values.day;
+  const hh = values.hour;
+  const mm = values.minute;
+  const ss = values.second;
   return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
 }
 
@@ -151,7 +168,7 @@ function broadcast(message) {
 }
 
 app.get('/', (req, res) => {
-  res.redirect('/input');
+  res.redirect('/display');
 });
 
 app.get('/input', (req, res) => {

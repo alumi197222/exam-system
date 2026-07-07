@@ -70,7 +70,7 @@
         if (!record) record = { candidateNo: i, questionNo: null, absent: false };
         var text = formatQuestion(record.questionNo) + (record.absent ? ' 缺' : '');
         html += '<div class="candidate-card">' +
-                '<div class="candidate-label">考生 ' + i + '</div>' +
+                '<div class="candidate-label">崗位 ' + i + '</div>' +
                 '<div class="question-display ' + (record.absent ? 'absent' : '') + '">' + text + '</div>' +
                 '</div>';
       }
