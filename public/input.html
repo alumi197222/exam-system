@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>樓下登錄｜考場抽題系統</title>
+  <title>考場抽題推播系統</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <div class="container">
     <div class="header">
       <div>
-        <h1>樓下抽題結果登錄</h1>
+        <h1>抽題結果登錄</h1>
         <div class="subtitle" id="questionRangeSubtitle">題號範圍由系統設定，每場次登錄 3 個崗位。</div>
       </div>
       <div id="connectionStatus" class="status">連線中</div>
@@ -53,7 +53,7 @@
         </table>
       </div>
       <div class="row" style="margin-top:16px;">
-        <button id="submitBtn">儲存並送出到樓上</button>
+        <button id="submitBtn">儲存並送出到抽題顯示結果頁面</button>
         <button id="clearBtn" class="secondary">清空本場次輸入</button>
       </div>
       <div id="message" class="message"></div>
@@ -153,7 +153,7 @@
         records: collectRecords()
       }).then(function(result) {
         renderState(result.data);
-        setMessage('已儲存，樓上顯示頁會即時更新。', 'ok');
+        setMessage('已儲存，抽題結果顯示頁會即時更新。', 'ok');
       }).catch(function(error) {
         setMessage(error.message, 'error');
       });

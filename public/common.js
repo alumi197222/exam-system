@@ -3,11 +3,17 @@ function wsUrl() {
   return protocol + '//' + location.host;
 }
 
+function shouldUseLiveState() {
+  if (typeof window === 'undefined' || !window.APP_CONFIG || !window.APP_CONFIG.useLiveState) return false;
+  return location.pathname === '/display' || location.pathname === '/summary';
+}
+
 function connectStateSocket(onState, onStatus) {
   var ws;
   var reconnectTimer;
   var pollingTimer;
   var lastPayloadJson = null;
+  var isManualClose = false;
 
   function setStatus(text, ok) {
     if (typeof onStatus === 'function') onStatus(text, ok);
@@ -61,6 +67,10 @@ function connectStateSocket(onState, onStatus) {
     });
 
     ws.addEventListener('close', function() {
+      if (isManualClose) {
+        setStatus('已中斷', false);
+        return;
+      }
       setStatus('WebSocket 連線中斷，改用輪詢', false);
       clearTimeout(reconnectTimer);
       ws = null;
@@ -68,6 +78,7 @@ function connectStateSocket(onState, onStatus) {
     });
 
     ws.addEventListener('error', function() {
+      if (isManualClose) return;
       setStatus('WebSocket 連線異常，改用輪詢', false);
       try { if (ws) ws.close(); } catch (e) {}
       ws = null;
@@ -76,6 +87,16 @@ function connectStateSocket(onState, onStatus) {
   }
 
   try {
+    if (shouldUseLiveState()) {
+      startPolling();
+      return {
+        close() {
+          isManualClose = true;
+          clearTimeout(reconnectTimer);
+          stopPolling();
+        }
+      };
+    }
     connectWebSocket();
   } catch (e) {
     startPolling();
@@ -83,6 +104,7 @@ function connectStateSocket(onState, onStatus) {
 
   return {
     close() {
+      isManualClose = true;
       clearTimeout(reconnectTimer);
       try { if (ws) ws.close(); } catch (e) {}
       stopPolling();
@@ -93,7 +115,7 @@ function connectStateSocket(onState, onStatus) {
 function apiGetState() {
   return new Promise(function(resolve, reject) {
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/api/state', true);
+    xhr.open('GET', shouldUseLiveState() ? '/api/live-state' : '/api/state', true);
     xhr.onreadystatechange = function() {
       if (xhr.readyState !== 4) return;
       if (xhr.status >= 200 && xhr.status < 300) {
@@ -133,6 +155,29 @@ function apiPost(url, body) {
     };
     xhr.onerror = function() { reject(new Error('網路錯誤')); };
     try { xhr.send(JSON.stringify(body)); } catch (e) { reject(e); }
+  });
+}
+
+function apiGetText(url) {
+  return new Promise(function(resolve, reject) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState !== 4) return;
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(xhr.responseText || '');
+      } else {
+        reject(new Error('讀取資料失敗'));
+      }
+    };
+    xhr.onerror = function() { reject(new Error('網路錯誤')); };
+    try { xhr.send(); } catch (e) { reject(e); }
+  });
+}
+
+function apiRefreshDisplayPassword(invalidateExistingCookies) {
+  return apiPost('/api/refresh-display-password', {
+    invalidateExistingCookies: Boolean(invalidateExistingCookies)
   });
 }
 
