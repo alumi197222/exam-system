@@ -47,3 +47,12 @@ http://你的主機IP:3000/summary
 ```
 
 容器重建或重啟不會遺失資料。
+
+## Docker Compose設定
+```text
+      - ADMIN_PASSWORD=
+      - UPSTREAM_STATE_URL=
+```
+ADMIN_PASSWORD:設定後進入/input與/summary需要本密碼
+
+UPSTREAM_STATE_URL:在測試環境時，可以填入正式環境URL使用正式環境資料顯示
