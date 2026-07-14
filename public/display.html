@@ -62,7 +62,7 @@
     var displayAuthMessage = document.getElementById('displayAuthMessage');
 
     var DISPLAY_AUTH_KEY = 'displayAuthState';
-    var DISPLAY_AUTH_DURATION_MS = 12 * 60 * 60 * 1000;  // 第一個12 ，指的是12小時，如果要修改幾個效時更改12就可以了
+    var DISPLAY_AUTH_DURATION_MS = 12 * 60 * 60 * 1000;
     var stateSocket = null;
     var currentStateData = null;
 
@@ -90,11 +90,6 @@
       } catch (error) {
         return null;
       }
-    }
-
-    function isAuthLocallyValid() {
-      var auth = readDisplayAuthState();
-      return !!auth && Date.now() < auth.expiresAt;
     }
 
     function isAuthValidForState(data) {
@@ -129,11 +124,8 @@
       currentStateData = null;
       if (displayAuthView) displayAuthView.classList.remove('display-hidden');
       if (displayApp) displayApp.classList.add('display-hidden');
-      if (typeof message === 'string' && message) {
-        setAuthMessage(message, 'error');
-      } else {
-        setAuthMessage('', '');
-      }
+      if (typeof message === 'string' && message) setAuthMessage(message, 'error');
+      else setAuthMessage('', '');
       if (displayPasswordInput) displayPasswordInput.focus();
     }
 
@@ -165,7 +157,7 @@
     }
 
     function updateClock() {
-      const parts = nowParts();
+      var parts = nowParts();
       clock.textContent = parts.time;
       dateLine.textContent = parts.date;
     }
@@ -198,11 +190,21 @@
         for (var ri = 0; ri < records.length; ri++) {
           if (Number(records[ri].candidateNo) === i) { record = records[ri]; break; }
         }
-        if (!record) record = { candidateNo: i, questionNo: null, absent: false };
-        var text = formatQuestion(record.questionNo) + (record.absent ? ' 缺' : '');
+        if (!record) record = { candidateNo: i, questionNo: null, absent: false, abandoned: false };
+
+        var text = formatQuestion(record.questionNo);
+        var statusClass = '';
+        if (record.absent) {
+          text += ' 缺考';
+          statusClass = 'absent';
+        } else if (record.abandoned) {
+          text += ' 棄考';
+          statusClass = 'abandoned';
+        }
+
         html += '<div class="candidate-card">' +
                 '<div class="candidate-label">崗位 ' + i + '</div>' +
-                '<div class="question-display ' + (record.absent ? 'absent' : '') + '">' + text + '</div>' +
+                '<div class="question-display ' + statusClass + '">' + text + '</div>' +
                 '</div>';
       }
       candidateGrid.innerHTML = html;
@@ -243,20 +245,14 @@
     setInterval(function() {
       var auth = readDisplayAuthState();
       if (!auth) {
-        if (displayApp && !displayApp.classList.contains('display-hidden')) {
-          lockDisplay('登入已逾時，請重新登入。');
-        }
+        if (displayApp && !displayApp.classList.contains('display-hidden')) lockDisplay('登入已逾時，請重新登入。');
         return;
       }
-
       if (Date.now() >= auth.expiresAt) {
         lockDisplay('登入已逾時，請重新登入。');
         return;
       }
-
-      if (currentStateData && !isAuthValidForState(currentStateData)) {
-        lockDisplay('登入已失效，請重新登入。');
-      }
+      if (currentStateData && !isAuthValidForState(currentStateData)) lockDisplay('登入已失效，請重新登入。');
     }, 30000);
 
     apiGetState().then(function(res) {
