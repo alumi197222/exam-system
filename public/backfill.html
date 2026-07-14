@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>歷史資料補登｜考場抽題系統</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <h1>歷史資料補登</h1>
+        <div class="subtitle">補登過往日期的抽題紀錄，資料會直接寫入 MariaDB，不會影響今日的 today.json。</div>
+      </div>
+    </div>
+
+    <div class="nav">
+      <a href="/input">抽題登入</a>
+      <a href="/summary">補印結算</a>
+      <a href="/history">歷史統計</a>
+      <a href="/backfill">歷史補登</a>
+    </div>
+
+    <div class="card">
+      <h2>補登日期</h2>
+      <div class="row">
+        <div>
+          <label for="examDate">考試日期</label>
+          <input id="examDate" type="date">
+        </div>
+        <button id="submitBtn">寫入 MariaDB</button>
+        <button id="clearBtn" class="secondary">清空畫面</button>
+      </div>
+      <p class="subtitle">同一日期若已存在資料，送出後會以本頁輸入內容覆蓋該日期的歷史紀錄。</p>
+      <div id="message" class="message"></div>
+    </div>
+
+    <div class="card">
+      <h2>過往抽題紀錄</h2>
+      <div class="subtitle">缺席不列入統計；棄考代表題目已使用，會列入統計。缺席與棄考只能擇一。</div>
+      <div id="sessionsArea"></div>
+    </div>
+  </div>
+
+  <script src="/config.js"></script>
+  <script src="/common.js"></script>
+  <script>
+    var examDate = document.getElementById('examDate');
+    var sessionsArea = document.getElementById('sessionsArea');
+    var messageEl = document.getElementById('message');
+
+    function setMessage(text, type) {
+      if (type === undefined) type = '';
+      messageEl.textContent = text;
+      messageEl.className = 'message ' + type;
+    }
+
+    function renderForm() {
+      var html = '';
+      for (var sessionNo = 1; sessionNo <= 6; sessionNo++) {
+        var period = sessionNo <= 3 ? '上午' : '下午';
+        html += '<div class="card" style="box-shadow:none; margin-top:16px;">' +
+          '<h3>第 ' + sessionNo + ' 場（' + period + '）</h3>' +
+          '<div class="table-wrap" style="margin-top:12px;"><table>' +
+          '<thead><tr><th>崗位</th><th>抽到題號</th><th>缺席</th><th>棄考</th></tr></thead><tbody>';
+        for (var candidateNo = 1; candidateNo <= 3; candidateNo++) {
+          html += '<tr>' +
+            '<td><strong>崗位 ' + candidateNo + '</strong></td>' +
+            '<td><select class="question-select" data-session="' + sessionNo + '" data-candidate="' + candidateNo + '">' + questionOptions(null) + '</select></td>' +
+            '<td><label class="row" style="justify-content:center;"><input type="checkbox" class="absent-check" data-session="' + sessionNo + '" data-candidate="' + candidateNo + '">缺席</label></td>' +
+            '<td><label class="row" style="justify-content:center;"><input type="checkbox" class="abandoned-check" data-session="' + sessionNo + '" data-candidate="' + candidateNo + '">棄考</label></td>' +
+            '</tr>';
+        }
+        html += '</tbody></table></div></div>';
+      }
+      sessionsArea.innerHTML = html;
+      bindExclusiveChecks();
+    }
+
+    function bindExclusiveChecks() {
+      var absentChecks = document.querySelectorAll('.absent-check');
+      var abandonedChecks = document.querySelectorAll('.abandoned-check');
+
+      for (var ai = 0; ai < absentChecks.length; ai++) {
+        absentChecks[ai].addEventListener('change', function() {
+          if (!this.checked) return;
+          var sessionNo = this.getAttribute('data-session');
+          var candidateNo = this.getAttribute('data-candidate');
+          var abandonedEl = document.querySelector('.abandoned-check[data-session="' + sessionNo + '"][data-candidate="' + candidateNo + '"]');
+          if (abandonedEl) abandonedEl.checked = false;
+        });
+      }
+
+      for (var bi = 0; bi < abandonedChecks.length; bi++) {
+        abandonedChecks[bi].addEventListener('change', function() {
+          if (!this.checked) return;
+          var sessionNo = this.getAttribute('data-session');
+          var candidateNo = this.getAttribute('data-candidate');
+          var absentEl = document.querySelector('.absent-check[data-session="' + sessionNo + '"][data-candidate="' + candidateNo + '"]');
+          if (absentEl) absentEl.checked = false;
+        });
+      }
+    }
+
+    function collectSessions() {
+      var sessions = [];
+      for (var sessionNo = 1; sessionNo <= 6; sessionNo++) {
+        var records = [];
+        for (var candidateNo = 1; candidateNo <= 3; candidateNo++) {
+          var qEl = document.querySelector('.question-select[data-session="' + sessionNo + '"][data-candidate="' + candidateNo + '"]');
+          var absentEl = document.querySelector('.absent-check[data-session="' + sessionNo + '"][data-candidate="' + candidateNo + '"]');
+          var abandonedEl = document.querySelector('.abandoned-check[data-session="' + sessionNo + '"][data-candidate="' + candidateNo + '"]');
+          var q = qEl ? qEl.value : '';
+          var absent = absentEl ? absentEl.checked : false;
+          var abandoned = !absent && abandonedEl ? abandonedEl.checked : false;
+          records.push({
+            candidateNo: candidateNo,
+            questionNo: q === '' ? null : Number(q),
+            absent: absent,
+            abandoned: abandoned
+          });
+        }
+        sessions.push({ sessionNo: sessionNo, records: records });
+      }
+      return sessions;
+    }
+
+    document.getElementById('submitBtn').addEventListener('click', function() {
+      var date = examDate.value;
+      if (!date) {
+        setMessage('請先選擇補登日期。', 'error');
+        return;
+      }
+      if (window.APP_CONFIG && window.APP_CONFIG.dbEnabled === false) {
+        setMessage('MariaDB 歷史歸檔尚未啟用，請先設定 DB_ENABLED=true。', 'error');
+        return;
+      }
+      var ok = confirm('確定要將 ' + date + ' 的補登資料寫入 MariaDB 嗎？若該日期已存在，會覆蓋原本歷史紀錄。');
+      if (!ok) return;
+
+      setMessage('寫入中...');
+      apiPost('/api/history/backfill', {
+        date: date,
+        sessions: collectSessions()
+      }).then(function(result) {
+        setMessage('已完成補登：' + result.examDate, 'ok');
+      }).catch(function(error) {
+        setMessage(error.message || '補登失敗。', 'error');
+      });
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', function() {
+      examDate.value = '';
+      renderForm();
+      setMessage('已清空畫面。', 'ok');
+    });
+
+    renderForm();
+  </script>
+</body>
+</html>
