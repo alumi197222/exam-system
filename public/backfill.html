@@ -29,10 +29,11 @@
           <label for="examDate">考試日期</label>
           <input id="examDate" type="date">
         </div>
+        <button id="loadBtn" class="secondary">載入既有資料</button>
         <button id="submitBtn">寫入 MariaDB</button>
         <button id="clearBtn" class="secondary">清空畫面</button>
       </div>
-      <p class="subtitle">同一日期若已存在資料，送出後會以本頁輸入內容覆蓋該日期的歷史紀錄。</p>
+      <p class="subtitle">選擇日期後會自動讀取 MariaDB 既有資料；同一日期送出後會以本頁內容覆蓋該日期歷史紀錄。</p>
       <div id="message" class="message"></div>
     </div>
 
@@ -125,6 +126,49 @@
       }
       return sessions;
     }
+
+    function populateExistingRecords(records) {
+      for (var i = 0; i < records.length; i++) {
+        var record = records[i];
+        var sessionNo = Number(record.sessionNo);
+        var candidateNo = Number(record.candidateNo);
+        var qEl = document.querySelector('.question-select[data-session="' + sessionNo + '"][data-candidate="' + candidateNo + '"]');
+        var absentEl = document.querySelector('.absent-check[data-session="' + sessionNo + '"][data-candidate="' + candidateNo + '"]');
+        var abandonedEl = document.querySelector('.abandoned-check[data-session="' + sessionNo + '"][data-candidate="' + candidateNo + '"]');
+        if (qEl) qEl.value = record.questionNo === null || record.questionNo === undefined ? '' : String(record.questionNo);
+        if (absentEl) absentEl.checked = Boolean(record.absent);
+        if (abandonedEl) abandonedEl.checked = !Boolean(record.absent) && Boolean(record.abandoned);
+      }
+    }
+
+    function loadExistingData() {
+      var date = examDate.value;
+      if (!date) {
+        setMessage('請先選擇補登日期。', 'error');
+        return;
+      }
+      if (window.APP_CONFIG && window.APP_CONFIG.dbEnabled === false) {
+        setMessage('MariaDB 歷史歸檔尚未啟用，請先設定 DB_ENABLED=true。', 'error');
+        return;
+      }
+
+      setMessage('正在讀取 ' + date + ' 的既有資料...');
+      apiGetText('/api/history/statistics?start=' + encodeURIComponent(date) + '&end=' + encodeURIComponent(date)).then(function(text) {
+        var result = JSON.parse(text);
+        renderForm();
+        if (result.records && result.records.length > 0) {
+          populateExistingRecords(result.records);
+          setMessage('已載入 ' + date + ' 的既有資料，可直接修改後重新寫入。', 'ok');
+        } else {
+          setMessage('DB 中尚無 ' + date + ' 的資料，已顯示空白補登表單。', 'ok');
+        }
+      }).catch(function(error) {
+        setMessage(error.message || '讀取既有資料失敗。', 'error');
+      });
+    }
+
+    document.getElementById('loadBtn').addEventListener('click', loadExistingData);
+    examDate.addEventListener('change', loadExistingData);
 
     document.getElementById('submitBtn').addEventListener('click', function() {
       var date = examDate.value;
