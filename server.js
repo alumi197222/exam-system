@@ -55,7 +55,7 @@ function isAdminAuthenticated(req) {
 }
 
 function sanitizeNextPath(nextPath) {
-  if (nextPath === '/input' || nextPath === '/summary' || nextPath === '/history') return nextPath;
+  if (nextPath === '/input' || nextPath === '/summary' || nextPath === '/history' || nextPath === '/backfill') return nextPath;
   return '/input';
 }
 
@@ -340,6 +340,46 @@ async function tryAutoArchive(data) {
   }
 }
 
+function isDateString(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
+}
+
+function createArchiveDataFromRequest(body) {
+  const examDate = String(body && body.date ? body.date : '');
+  if (!isDateString(examDate)) throw new Error('請選擇要補登的日期。');
+
+  const inputSessions = Array.isArray(body.sessions) ? body.sessions : [];
+  const sessions = [1, 2, 3, 4, 5, 6].map(sessionNo => {
+    const inputSession = inputSessions.find(item => Number(item.sessionNo) === sessionNo) || {};
+    const inputRecords = Array.isArray(inputSession.records) ? inputSession.records : [];
+
+    return {
+      sessionNo,
+      period: sessionNo <= 3 ? '上午' : '下午',
+      records: [1, 2, 3].map(candidateNo => {
+        const inputRecord = inputRecords.find(item => Number(item.candidateNo) === candidateNo) || {};
+        const questionNo = inputRecord.questionNo === null || inputRecord.questionNo === undefined || inputRecord.questionNo === ''
+          ? null
+          : Number(inputRecord.questionNo);
+        const absent = Boolean(inputRecord.absent);
+        const abandoned = absent ? false : Boolean(inputRecord.abandoned);
+        return { candidateNo, questionNo, absent, abandoned };
+      })
+    };
+  });
+
+  return {
+    date: examDate,
+    currentSession: 1,
+    lastUpdatedAt: formatDateTime(),
+    displayPassword: '',
+    displayPasswordDayKey: '',
+    displayPasswordGeneratedAt: '',
+    displayAuthVersion: '1',
+    sessions
+  };
+}
+
 app.get('/', (req, res) => res.redirect('/display'));
 
 app.get('/input', (req, res) => {
@@ -357,6 +397,11 @@ app.get('/summary', (req, res) => {
 app.get('/history', (req, res) => {
   if (!isAdminAuthenticated(req)) return res.redirect('/auth?next=%2Fhistory');
   res.sendFile(path.join(__dirname, 'public', 'history.html'));
+});
+
+app.get('/backfill', (req, res) => {
+  if (!isAdminAuthenticated(req)) return res.redirect('/auth?next=%2Fbackfill');
+  res.sendFile(path.join(__dirname, 'public', 'backfill.html'));
 });
 
 app.get('/display/login/:password', (req, res) => {
@@ -516,6 +561,18 @@ app.post('/api/archive-today', async (req, res) => {
     res.json(result);
   } catch (error) {
     res.status(error.code === 'DB_DISABLED' ? 503 : 500).json({ error: error.message || '寫入 MariaDB 失敗。JSON 資料仍保留。' });
+  }
+});
+
+app.post('/api/history/backfill', async (req, res) => {
+  if (!isAdminAuthenticated(req)) return res.status(401).json({ error: '請先登入管理密碼。' });
+  try {
+    // 補登過往資料直接寫入 MariaDB，不覆蓋也不影響今日現場作業用的 today.json。
+    const archiveData = createArchiveDataFromRequest(req.body || {});
+    const result = await historyDb.archiveExamDay(archiveData, { questionCount: QUESTION_COUNT, method: 'backfill' });
+    res.json(result);
+  } catch (error) {
+    res.status(error.code === 'DB_DISABLED' ? 503 : 400).json({ error: error.message || '補登歷史資料失敗。' });
   }
 });
 
