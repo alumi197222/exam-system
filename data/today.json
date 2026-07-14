@@ -1,7 +1,7 @@
 {
-  "date": "2026-06-04",
-  "currentSession": 3,
-  "lastUpdatedAt": "2026-07-07 10:12:38",
+  "date": "2026-07-06",
+  "currentSession": 6,
+  "lastUpdatedAt": "2026-07-14 22:31:57",
   "sessions": [
     {
       "sessionNo": 1,
@@ -9,18 +9,21 @@
       "records": [
         {
           "candidateNo": 1,
-          "questionNo": 12,
-          "absent": false
+          "questionNo": 4,
+          "absent": false,
+          "abandoned": false
         },
         {
           "candidateNo": 2,
-          "questionNo": 13,
-          "absent": true
+          "questionNo": 7,
+          "absent": false,
+          "abandoned": false
         },
         {
           "candidateNo": 3,
           "questionNo": 14,
-          "absent": false
+          "absent": true,
+          "abandoned": false
         }
       ]
     },
@@ -30,18 +33,21 @@
       "records": [
         {
           "candidateNo": 1,
-          "questionNo": 12,
-          "absent": true
+          "questionNo": 4,
+          "absent": false,
+          "abandoned": false
         },
         {
           "candidateNo": 2,
-          "questionNo": 13,
-          "absent": false
+          "questionNo": 14,
+          "absent": false,
+          "abandoned": false
         },
         {
           "candidateNo": 3,
-          "questionNo": 14,
-          "absent": true
+          "questionNo": 3,
+          "absent": true,
+          "abandoned": false
         }
       ]
     },
@@ -51,18 +57,21 @@
       "records": [
         {
           "candidateNo": 1,
-          "questionNo": 6,
-          "absent": false
+          "questionNo": 4,
+          "absent": true,
+          "abandoned": false
         },
         {
           "candidateNo": 2,
-          "questionNo": 6,
-          "absent": true
+          "questionNo": 3,
+          "absent": true,
+          "abandoned": false
         },
         {
           "candidateNo": 3,
-          "questionNo": 6,
-          "absent": false
+          "questionNo": 4,
+          "absent": true,
+          "abandoned": false
         }
       ]
     },
@@ -72,18 +81,21 @@
       "records": [
         {
           "candidateNo": 1,
-          "questionNo": null,
-          "absent": false
+          "questionNo": 7,
+          "absent": true,
+          "abandoned": false
         },
         {
           "candidateNo": 2,
-          "questionNo": null,
-          "absent": false
+          "questionNo": 11,
+          "absent": true,
+          "abandoned": false
         },
         {
           "candidateNo": 3,
-          "questionNo": null,
-          "absent": false
+          "questionNo": 12,
+          "absent": true,
+          "abandoned": false
         }
       ]
     },
@@ -93,18 +105,21 @@
       "records": [
         {
           "candidateNo": 1,
-          "questionNo": null,
-          "absent": false
+          "questionNo": 9,
+          "absent": true,
+          "abandoned": false
         },
         {
           "candidateNo": 2,
-          "questionNo": null,
-          "absent": false
+          "questionNo": 3,
+          "absent": true,
+          "abandoned": false
         },
         {
           "candidateNo": 3,
-          "questionNo": null,
-          "absent": false
+          "questionNo": 12,
+          "absent": false,
+          "abandoned": false
         }
       ]
     },
@@ -114,24 +129,27 @@
       "records": [
         {
           "candidateNo": 1,
-          "questionNo": null,
-          "absent": false
+          "questionNo": 12,
+          "absent": true,
+          "abandoned": false
         },
         {
           "candidateNo": 2,
-          "questionNo": null,
-          "absent": false
+          "questionNo": 14,
+          "absent": false,
+          "abandoned": true
         },
         {
           "candidateNo": 3,
-          "questionNo": null,
-          "absent": false
+          "questionNo": 13,
+          "absent": true,
+          "abandoned": false
         }
       ]
     }
   ],
-  "displayPassword": "lWcTh7",
-  "displayPasswordDayKey": "2026-07-07",
-  "displayPasswordGeneratedAt": "2026-07-07 16:21:36",
-  "displayAuthVersion": "6"
+  "displayPassword": "SB19L0",
+  "displayPasswordDayKey": "2026-07-14",
+  "displayPasswordGeneratedAt": "2026-07-14 21:33:21",
+  "displayAuthVersion": "1"
 }

@@ -84,7 +84,7 @@
       var s = result.summary;
       document.getElementById('summaryText').textContent =
         '歸檔天數：' + s.archivedDays + '；全部抽題結果：' + s.countedDraws +
-        '；缺席：' + s.absentCount + '；棄考：' + s.abandonedCount + '；總紀錄：' + s.totalRecords;
+        '；缺考：' + s.absentCount + '；棄考：' + s.abandonedCount + '；總紀錄：' + s.totalRecords;
 
       var overallRows = visibleRows(result.overallQuestionRate);
       document.getElementById('overallBody').innerHTML = overallRows.length ? overallRows.map(function(row) {

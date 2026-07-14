@@ -55,7 +55,7 @@ function isAdminAuthenticated(req) {
 }
 
 function sanitizeNextPath(nextPath) {
-  if (nextPath === '/input' || nextPath === '/summary' || nextPath === '/history' || nextPath === '/backfill') return nextPath;
+  if (nextPath === '/input' || nextPath === '/summary' || nextPath === '/history' || nextPath === '/backfill' ) return nextPath;
   return '/input';
 }
 

@@ -9,7 +9,7 @@
 <body>
   <div class="container">
     <div class="header">
-      <div><h1>補印結算</h1><div class="subtitle">缺席不列入補印；棄考仍列入補印與歷史統計。</div></div>
+      <div><h1>補印結算</h1><div class="subtitle">缺考不列入補印；棄考仍列入補印。</div></div>
       <div id="connectionStatus" class="status">連線中</div>
     </div>
     <div class="nav no-print">
@@ -20,10 +20,12 @@
       <h2>今日補印清單</h2>
       <p>資料日期：<strong id="dataDate">-</strong>　最後更新：<strong id="lastUpdatedAt">-</strong></p>
       <p>顯示密碼：<strong id="displayPassword" class="display-password-badge">-</strong>　產生時間：<strong id="displayPasswordGeneratedAt">-</strong></p>
-      <div class="row no-print">
+      <div class="row">
         <select id="refreshLoginAction"><option value="keep">保留原登入資訊</option><option value="delete">刪除原登入資訊</option></select>
         <button id="refreshPasswordBtn" class="secondary">強制更新密碼</button>
         <button id="showQrBtn" class="secondary">顯示 QRCode</button>
+      </div>
+      <div class="row no-print">
         <button id="printBtn" class="print">列印補印清單</button>
         <button id="resetBtn" class="danger">結算後清除今日資料</button>
       </div>
