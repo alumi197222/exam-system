@@ -159,8 +159,8 @@
     function formatRecordForSummary(record) {
       if (!record) return '-';
       var text = formatQuestion(record.questionNo);
-      if (record.absent) return '<span class="absent-text">' + text + ' 缺席</span>';
-      if (record.abandoned) return '<span class="abandoned-text">' + text + ' 棄考</span>';
+      if (record.absent) return '<span class="absent-text">' + text + ' 缺</span>';
+      if (record.abandoned) return '<span class="abandoned-text">' + text + ' 棄</span>';
       return text;
     }
 

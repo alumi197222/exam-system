@@ -6,6 +6,7 @@
   --primary: #1d4ed8;
   --primary-dark: #1e40af;
   --danger: #dc2626;
+  --abandoned: #efb540;
   --success: #059669;
   --border: #d1d5db;
   --shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
@@ -454,8 +455,17 @@ th {
   color: var(--danger);
 }
 
+.question-display.abandoned {
+  color: var(--abandoned);
+}
+
 .absent-text {
   color: var(--danger);
+  font-weight: 900;
+}
+
+.abandoned-text {
+  color: var(--abandoned);
   font-weight: 900;
 }
 
