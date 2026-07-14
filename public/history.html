@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>歷史統計｜考場抽題系統</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header"><div><h1>歷史出題統計</h1><div class="subtitle">統計 MariaDB 已歸檔資料；目前採全部抽題結果口徑，缺席與棄考不再扣除。</div></div></div>
+    <div class="nav"><a href="/input">抽題登入</a><a href="/summary">補印結算</a><a href="/history">歷史統計</a><a href="/backfill">補登過往題目</a></div>
+
+    <div class="card">
+      <div class="row">
+        <div><label for="startDate">開始日期</label><input id="startDate" type="date"></div>
+        <div><label for="endDate">結束日期</label><input id="endDate" type="date"></div>
+        <button id="queryBtn">查詢</button>
+        <button id="toggleDisplayModeBtn" class="secondary" type="button">全部顯示模式</button>
+        <button onclick="location.href='/backfill'" class="secondary" type="button">補登過往題目</button>
+      </div>
+      <div class="subtitle" id="displayModeText" style="margin-top:10px;">目前為簡略模式：次數為 0 的題目不顯示。</div>
+      <div id="message" class="message"></div>
+    </div>
+
+    <div class="card">
+      <h2>查詢摘要</h2>
+      <div id="summaryText" class="subtitle">尚未查詢</div>
+    </div>
+
+    <div class="card">
+      <h2>期間整體出題機率</h2>
+      <div class="table-wrap"><table><thead><tr><th>題號</th><th>次數</th><th>機率</th></tr></thead><tbody id="overallBody"></tbody></table></div>
+    </div>
+
+    <div class="card">
+      <h2>每日出題機率</h2>
+      <div class="table-wrap"><table><thead><tr><th>日期</th><th>題號</th><th>次數</th><th>機率</th></tr></thead><tbody id="dailyBody"></tbody></table></div>
+    </div>
+
+    <div class="card">
+      <h2>各崗位出題機率</h2>
+      <div class="table-wrap"><table><thead><tr><th>崗位</th><th>題號</th><th>次數</th><th>機率</th></tr></thead><tbody id="candidateBody"></tbody></table></div>
+    </div>
+
+    <div class="card">
+      <h2>各場次出題機率</h2>
+      <div class="table-wrap"><table><thead><tr><th>場次</th><th>題號</th><th>次數</th><th>機率</th></tr></thead><tbody id="sessionBody"></tbody></table></div>
+    </div>
+
+    <div class="card">
+      <h2>歷史原始紀錄</h2>
+      <div class="table-wrap"><table><thead><tr><th>日期</th><th>場次</th><th>崗位</th><th>題號</th><th>狀態</th></tr></thead><tbody id="recordBody"></tbody></table></div>
+    </div>
+  </div>
+
+  <script src="/common.js"></script>
+  <script>
+    var messageEl = document.getElementById('message');
+    var lastResult = null;
+    var compactMode = true;
+
+    function dateString(date) { return date.toISOString().slice(0, 10); }
+    function setMessage(text, type) { messageEl.textContent = text; messageEl.className = 'message ' + (type || ''); }
+    function percent(value) { return Number(value || 0).toFixed(2) + '%'; }
+    function questionText(value) { return value ? '第 ' + value + ' 題' : '-'; }
+
+    var today = new Date();
+    var start = new Date(today.getFullYear(), today.getMonth(), 1);
+    document.getElementById('startDate').value = dateString(start);
+    document.getElementById('endDate').value = dateString(today);
+
+    function visibleRows(rows) {
+      if (!compactMode) return rows || [];
+      return (rows || []).filter(function(row) { return Number(row.count || 0) !== 0; });
+    }
+
+    function emptyRow(colspan) {
+      return '<tr><td colspan="' + colspan + '" class="subtitle">此區間沒有次數大於 0 的資料。</td></tr>';
+    }
+
+    function render(result) {
+      lastResult = result;
+      var s = result.summary;
+      document.getElementById('summaryText').textContent =
+        '歸檔天數：' + s.archivedDays + '；全部抽題結果：' + s.countedDraws +
+        '；缺考：' + s.absentCount + '；棄考：' + s.abandonedCount + '；總紀錄：' + s.totalRecords;
+
+      var overallRows = visibleRows(result.overallQuestionRate);
+      document.getElementById('overallBody').innerHTML = overallRows.length ? overallRows.map(function(row) {
+        return '<tr><td>' + questionText(row.questionNo) + '</td><td>' + row.count + '</td><td>' + percent(row.percentage) + '</td></tr>';
+      }).join('') : emptyRow(3);
+
+      var dailyRows = visibleRows(result.dailyQuestionRate);
+      document.getElementById('dailyBody').innerHTML = dailyRows.length ? dailyRows.map(function(row) {
+        return '<tr><td>' + row.examDate + '</td><td>' + questionText(row.questionNo) + '</td><td>' + row.count + '</td><td>' + percent(row.percentage) + '</td></tr>';
+      }).join('') : emptyRow(4);
+
+      var candidateRows = visibleRows(result.candidateQuestionRate);
+      document.getElementById('candidateBody').innerHTML = candidateRows.length ? candidateRows.map(function(row) {
+        return '<tr><td>崗位 ' + row.candidateNo + '</td><td>' + questionText(row.questionNo) + '</td><td>' + row.count + '</td><td>' + percent(row.percentage) + '</td></tr>';
+      }).join('') : emptyRow(4);
+
+      var sessionRows = visibleRows(result.sessionQuestionRate);
+      document.getElementById('sessionBody').innerHTML = sessionRows.length ? sessionRows.map(function(row) {
+        return '<tr><td>第 ' + row.sessionNo + ' 場</td><td>' + questionText(row.questionNo) + '</td><td>' + row.count + '</td><td>' + percent(row.percentage) + '</td></tr>';
+      }).join('') : emptyRow(4);
+
+      document.getElementById('recordBody').innerHTML = result.records.length ? result.records.map(function(row) {
+        return '<tr><td>' + row.examDate + '</td><td>第 ' + row.sessionNo + ' 場</td><td>崗位 ' + row.candidateNo + '</td><td>' + questionText(row.questionNo) + '</td><td>' + row.status + '</td></tr>';
+      }).join('') : emptyRow(5);
+    }
+
+    function updateDisplayModeText() {
+      document.getElementById('toggleDisplayModeBtn').textContent = compactMode ? '全部顯示模式' : '簡略模式';
+      document.getElementById('displayModeText').textContent = compactMode
+        ? '目前為簡略模式：次數為 0 的題目不顯示。'
+        : '目前為全部顯示模式：所有題號都會顯示，包含次數為 0 的題目。';
+    }
+
+    document.getElementById('toggleDisplayModeBtn').addEventListener('click', function() {
+      compactMode = !compactMode;
+      updateDisplayModeText();
+      if (lastResult) render(lastResult);
+    });
+
+    document.getElementById('queryBtn').addEventListener('click', function() {
+      var startDate = document.getElementById('startDate').value;
+      var endDate = document.getElementById('endDate').value;
+      setMessage('查詢中...');
+      apiGetText('/api/history/statistics?start=' + encodeURIComponent(startDate) + '&end=' + encodeURIComponent(endDate)).then(function(text) {
+        render(JSON.parse(text));
+        setMessage('查詢完成。', 'ok');
+      }).catch(function(error) { setMessage(error.message || '查詢失敗。', 'error'); });
+    });
+
+    updateDisplayModeText();
+  </script>
+</body>
+</html>

@@ -12,3 +12,38 @@ services:
       - PORT=3000
       - ADMIN_PASSWORD=
       - UPSTREAM_STATE_URL=
+
+      # MariaDB 僅負責歷史歸檔與跨天統計；即使 DB 無法連線，當日 JSON 作業仍可繼續。
+      - DB_ENABLED=false
+      - DB_HOST=mariadb
+      - DB_PORT=3306
+      - DB_NAME=exam_system
+      - DB_USER=exam_user
+      - DB_PASSWORD=change_me
+      - DB_CONNECTION_LIMIT=5
+
+      # 第 6 場資料儲存後自動嘗試歸檔。失敗時不影響 JSON 與即時顯示。
+      - AUTO_ARCHIVE_ON_FINAL_SESSION=true
+
+    # 若 MariaDB 不在同一份 Compose 中，可移除 depends_on，並將 DB_HOST 改為實際主機。
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+  mariadb:
+    image: mariadb:11
+    container_name: exam-system-db
+    restart: unless-stopped
+    environment:
+      - MARIADB_ROOT_PASSWORD=change_root_password
+      - MARIADB_DATABASE=exam_system
+      - MARIADB_USER=exam_user
+      - MARIADB_PASSWORD=change_me
+    volumes:
+      - ./db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
