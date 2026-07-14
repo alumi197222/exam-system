@@ -39,7 +39,7 @@
 
     <div class="card">
       <h2>本場次崗位資料</h2>
-      <div class="subtitle">標示缺席，結算時不會列入補印。</div>
+      <div class="subtitle">缺席不列入補印；棄考會列入補印。缺席與棄考只能擇一，也可以都不勾選。</div>
       <div class="table-wrap" style="margin-top:16px;">
         <table>
           <thead>
@@ -47,6 +47,7 @@
               <th>崗位</th>
               <th>抽到題號</th>
               <th>是否缺席</th>
+              <th>是否棄考</th>
             </tr>
           </thead>
           <tbody id="recordsBody"></tbody>
@@ -94,6 +95,29 @@
       connectionStatus.className = 'status ' + (ok ? 'ok' : 'bad');
     }
 
+    function bindExclusiveStatusChecks() {
+      var absentChecks = document.querySelectorAll('.absent-check');
+      var abandonedChecks = document.querySelectorAll('.abandoned-check');
+
+      for (var ai = 0; ai < absentChecks.length; ai++) {
+        absentChecks[ai].addEventListener('change', function() {
+          if (!this.checked) return;
+          var candidateNo = this.getAttribute('data-candidate');
+          var abandonedEl = document.querySelector('.abandoned-check[data-candidate="' + candidateNo + '"]');
+          if (abandonedEl) abandonedEl.checked = false;
+        });
+      }
+
+      for (var bi = 0; bi < abandonedChecks.length; bi++) {
+        abandonedChecks[bi].addEventListener('change', function() {
+          if (!this.checked) return;
+          var candidateNo = this.getAttribute('data-candidate');
+          var absentEl = document.querySelector('.absent-check[data-candidate="' + candidateNo + '"]');
+          if (absentEl) absentEl.checked = false;
+        });
+      }
+    }
+
     function renderForm() {
       var sessionNo = Number(sessionSelect.value);
       var session = null;
@@ -103,23 +127,29 @@
         }
       }
       var records = (session && session.records) ? session.records : [
-        { candidateNo: 1, questionNo: null, absent: false },
-        { candidateNo: 2, questionNo: null, absent: false },
-        { candidateNo: 3, questionNo: null, absent: false }
+        { candidateNo: 1, questionNo: null, absent: false, abandoned: false },
+        { candidateNo: 2, questionNo: null, absent: false, abandoned: false },
+        { candidateNo: 3, questionNo: null, absent: false, abandoned: false }
       ];
 
       var out = '';
       for (var ri = 0; ri < records.length; ri++) {
         var record = records[ri];
+        var absent = Boolean(record.absent);
+        var abandoned = !absent && Boolean(record.abandoned);
         out += '<tr>' +
                '<td><strong>崗位 ' + record.candidateNo + '</strong></td>' +
                '<td><select class="question-select" data-candidate="' + record.candidateNo + '">' + questionOptions(record.questionNo) + '</select></td>' +
                '<td><label class="row" style="justify-content:center;">' +
-               '<input type="checkbox" class="absent-check" data-candidate="' + record.candidateNo + '" ' + (record.absent ? 'checked' : '') + '>' +
+               '<input type="checkbox" class="absent-check" data-candidate="' + record.candidateNo + '" ' + (absent ? 'checked' : '') + '>' +
                '缺席</label></td>' +
+               '<td><label class="row" style="justify-content:center;">' +
+               '<input type="checkbox" class="abandoned-check" data-candidate="' + record.candidateNo + '" ' + (abandoned ? 'checked' : '') + '>' +
+               '棄考</label></td>' +
                '</tr>';
       }
       recordsBody.innerHTML = out;
+      bindExclusiveStatusChecks();
     }
 
     function renderState(data) {
@@ -133,10 +163,12 @@
       var records = [];
       for (var i = 1; i <= 3; i++) {
         var qEl = document.querySelector('.question-select[data-candidate="' + i + '"]');
-        var cEl = document.querySelector('.absent-check[data-candidate="' + i + '"]');
+        var absentEl = document.querySelector('.absent-check[data-candidate="' + i + '"]');
+        var abandonedEl = document.querySelector('.abandoned-check[data-candidate="' + i + '"]');
         var q = qEl ? qEl.value : '';
-        var absent = cEl ? cEl.checked : false;
-        records.push({ candidateNo: i, questionNo: q === '' ? null : Number(q), absent: absent });
+        var absent = absentEl ? absentEl.checked : false;
+        var abandoned = !absent && abandonedEl ? abandonedEl.checked : false;
+        records.push({ candidateNo: i, questionNo: q === '' ? null : Number(q), absent: absent, abandoned: abandoned });
       }
       return records;
     }
@@ -162,8 +194,10 @@
     document.getElementById('clearBtn').addEventListener('click', function() {
       var selects = document.querySelectorAll('.question-select');
       for (var si = 0; si < selects.length; si++) selects[si].value = '';
-      var checks = document.querySelectorAll('.absent-check');
-      for (var ci = 0; ci < checks.length; ci++) checks[ci].checked = false;
+      var absentChecks = document.querySelectorAll('.absent-check');
+      for (var ai = 0; ai < absentChecks.length; ai++) absentChecks[ai].checked = false;
+      var abandonedChecks = document.querySelectorAll('.abandoned-check');
+      for (var bi = 0; bi < abandonedChecks.length; bi++) abandonedChecks[bi].checked = false;
       setMessage('已清空畫面上的本場次輸入，尚未送出。', 'ok');
     });
 
