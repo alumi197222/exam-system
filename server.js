@@ -56,8 +56,7 @@ function getAdminAuthCookie(req) {
 
 function isAdminAuthenticated(req) {
   const expectedToken = getAdminAuthToken();
-
-  if (!expectedToken) return true;  //沒有設定管理密碼時，任何人都可以登入
+  if (!expectedToken) return true;
   return getAdminAuthCookie(req) === expectedToken;
 }
 
@@ -75,7 +74,6 @@ function escapeHtml(text) {
 function renderLoginPage(nextPath, errorMessage) {
   const safeNext = sanitizeNextPath(nextPath);
   const safeError = errorMessage ? escapeHtml(errorMessage) : '';
-
   return `<!doctype html>
 <html lang="zh-Hant">
 <head>
@@ -95,9 +93,7 @@ function renderLoginPage(nextPath, errorMessage) {
         <input type="hidden" name="next" value="${safeNext}">
         <label for="adminPassword">密碼</label>
         <input id="adminPassword" name="password" class="display-auth-input" type="password" autocomplete="current-password" spellcheck="false" placeholder="輸入管理密碼">
-        <div class="display-auth-actions">
-          <button type="submit">登入</button>
-        </div>
+        <div class="display-auth-actions"><button type="submit">登入</button></div>
       </form>
     </div>
   </div>
@@ -108,7 +104,6 @@ function renderLoginPage(nextPath, errorMessage) {
 function renderDisplayAutoLoginPage(authState, errorMessage) {
   const safeStateJson = JSON.stringify(authState);
   const safeError = errorMessage ? `<div class="display-auth-error" style="margin-top:12px;">${escapeHtml(errorMessage)}</div>` : '';
-
   return `<!doctype html>
 <html lang="zh-Hant">
 <head>
@@ -153,23 +148,13 @@ function getDisplayLoginUrl(req, password) {
 
 function setAdminAuthCookie(res) {
   const token = getAdminAuthToken();
-  const maxAgeSeconds = 30 * 24 * 60 * 60;  //這邊設定管理員權杖時效，預設是 30 天
+  if (!token) return;
+  const maxAgeSeconds = 30 * 24 * 60 * 60;
   res.setHeader('Set-Cookie', `adminAuth=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSeconds}`);
 }
 
 function clearAdminAuthCookie(res) {
   res.setHeader('Set-Cookie', 'adminAuth=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
-}
-
-function requireAdminPageAuth(req, res, next) {
-  if (isAdminAuthenticated(req)) return next();
-  const nextPath = sanitizeNextPath(req.path);
-  return res.redirect(`/auth?next=${encodeURIComponent(nextPath)}`);
-}
-
-function requireAdminApiAuth(req, res, next) {
-  if (isAdminAuthenticated(req)) return next();
-  return res.status(401).json({ error: '請先登入管理密碼。' });
 }
 
 function getTodayString() {
@@ -206,18 +191,14 @@ function formatDateTime(date = new Date()) {
 function getDisplayPasswordDayKey(date = new Date()) {
   const parts = getTaipeiDateParts(date);
   const businessDay = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
-  if (parts.hour < DISPLAY_PASSWORD_ROTATION_HOUR) {
-    businessDay.setUTCDate(businessDay.getUTCDate() - 1);
-  }
+  if (parts.hour < DISPLAY_PASSWORD_ROTATION_HOUR) businessDay.setUTCDate(businessDay.getUTCDate() - 1);
   return businessDay.toISOString().slice(0, 10);
 }
 
 function generateDisplayPassword() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let password = '';
-  for (let i = 0; i < DISPLAY_PASSWORD_LENGTH; i++) {
-    password += chars[crypto.randomInt(chars.length)];
-  }
+  for (let i = 0; i < DISPLAY_PASSWORD_LENGTH; i++) password += chars[crypto.randomInt(chars.length)];
   return password;
 }
 
@@ -225,19 +206,16 @@ function ensureDisplayPassword(data, date = new Date()) {
   const dayKey = getDisplayPasswordDayKey(date);
   const hasValidPassword = typeof data.displayPassword === 'string' && data.displayPassword.length === DISPLAY_PASSWORD_LENGTH;
   const isCurrentDay = data.displayPasswordDayKey === dayKey;
-
   if (!hasValidPassword || !isCurrentDay) {
     data.displayPassword = generateDisplayPassword();
     data.displayPasswordDayKey = dayKey;
     data.displayPasswordGeneratedAt = formatDateTime(date);
     return true;
   }
-
   if (!data.displayPasswordGeneratedAt) {
     data.displayPasswordGeneratedAt = formatDateTime(date);
     return true;
   }
-
   return false;
 }
 
@@ -262,11 +240,7 @@ function createDefaultSession(sessionNo) {
   return {
     sessionNo,
     period: sessionNo <= 3 ? '上午' : '下午',
-    records: [1, 2, 3].map(candidateNo => ({
-      candidateNo,
-      questionNo: null,
-      absent: false
-    }))
+    records: [1, 2, 3].map(candidateNo => ({ candidateNo, questionNo: null, absent: false, abandoned: false }))
   };
 }
 
@@ -284,18 +258,20 @@ function createDefaultData() {
 }
 
 function ensureDataFile() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(createDefaultData(), null, 2), 'utf8');
-  }
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, JSON.stringify(createDefaultData(), null, 2), 'utf8');
+}
+
+function normalizeRecordStatus(record) {
+  record.absent = Boolean(record.absent);
+  record.abandoned = Boolean(record.abandoned);
+  if (record.absent) record.abandoned = false;
+  return record;
 }
 
 function normalizeData(data) {
   const today = getTodayString();
   if (!data || typeof data !== 'object') return createDefaultData();
-
   if (!data.date) data.date = today;
   if (!Array.isArray(data.sessions)) data.sessions = [];
   if (typeof data.displayPassword !== 'string') data.displayPassword = '';
@@ -315,13 +291,13 @@ function normalizeData(data) {
     for (let c = 1; c <= 3; c++) {
       let record = session.records.find(r => Number(r.candidateNo) === c);
       if (!record) {
-        record = { candidateNo: c, questionNo: null, absent: false };
+        record = { candidateNo: c, questionNo: null, absent: false, abandoned: false };
         session.records.push(record);
       }
       record.candidateNo = c;
       record.questionNo = record.questionNo === '' || record.questionNo === undefined ? null : record.questionNo;
       if (record.questionNo !== null) record.questionNo = Number(record.questionNo);
-      record.absent = Boolean(record.absent);
+      normalizeRecordStatus(record);
     }
     session.records.sort((a, b) => a.candidateNo - b.candidateNo);
     session.records = session.records.slice(0, 3);
@@ -329,11 +305,9 @@ function normalizeData(data) {
 
   data.sessions.sort((a, b) => a.sessionNo - b.sessionNo);
   data.sessions = data.sessions.slice(0, 6);
-
   const currentSession = Number(data.currentSession);
   data.currentSession = currentSession >= 1 && currentSession <= 6 ? currentSession : 1;
   if (!data.lastUpdatedAt) data.lastUpdatedAt = '';
-
   return data;
 }
 
@@ -370,7 +344,6 @@ function refreshDisplayPassword(options = {}) {
     displayPasswordGeneratedAt: data.displayPasswordGeneratedAt,
     displayAuthVersion: data.displayAuthVersion
   });
-
   let changed = false;
   if (options.force) {
     forceRotateDisplayPassword(data, date, Boolean(options.invalidateExistingCookies));
@@ -378,19 +351,16 @@ function refreshDisplayPassword(options = {}) {
   } else {
     changed = ensureDisplayPassword(data, date);
   }
-
   const after = JSON.stringify({
     displayPassword: data.displayPassword,
     displayPasswordDayKey: data.displayPasswordDayKey,
     displayPasswordGeneratedAt: data.displayPasswordGeneratedAt,
     displayAuthVersion: data.displayAuthVersion
   });
-
   if (changed || before !== after) {
     writeData(data);
     broadcast({ type: 'state', data, summary: getSummary(data) });
   }
-
   return data;
 }
 
@@ -398,70 +368,49 @@ function mergeLiveStateWithLocalAuth(payload, localData) {
   const merged = payload && typeof payload === 'object' ? payload : {};
   const sourceData = merged.data && typeof merged.data === 'object' ? merged.data : {};
   const authSource = localData && typeof localData === 'object' ? localData : readData();
-
   merged.data = Object.assign({}, sourceData, {
     displayPassword: authSource.displayPassword || '',
     displayPasswordDayKey: authSource.displayPasswordDayKey || '',
     displayPasswordGeneratedAt: authSource.displayPasswordGeneratedAt || '',
     displayAuthVersion: authSource.displayAuthVersion || '1'
   });
-
   return merged;
 }
 
 function getSummary(data) {
-  const counts = Array.from({ length: QUESTION_COUNT }, (_, index) => ({
-    questionNo: index + 1,
-    printCount: 0
-  }));
-
+  const counts = Array.from({ length: QUESTION_COUNT }, (_, index) => ({ questionNo: index + 1, printCount: 0 }));
   data.sessions.forEach(session => {
     session.records.forEach(record => {
       const q = Number(record.questionNo);
-      if (!record.absent && q >= 1 && q <= QUESTION_COUNT) {
-        counts[q - 1].printCount += 1;
-      }
+      if (!record.absent && q >= 1 && q <= QUESTION_COUNT) counts[q - 1].printCount += 1;
     });
   });
-
   return counts;
 }
 
 function broadcast(message) {
   const payload = JSON.stringify(message);
   wss.clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(payload);
-    }
+    if (client.readyState === WebSocket.OPEN) client.send(payload);
   });
 }
 
-app.get('/', (req, res) => {
-  res.redirect('/display');
-});
+app.get('/', (req, res) => res.redirect('/display'));
 
 app.get('/input', (req, res) => {
-  if (!isAdminAuthenticated(req)) {
-    return res.redirect('/auth?next=%2Finput');
-  }
+  if (!isAdminAuthenticated(req)) return res.redirect('/auth?next=%2Finput');
   res.sendFile(path.join(__dirname, 'public', 'input.html'));
 });
 
-app.get('/display', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'display.html'));
-});
+app.get('/display', (req, res) => res.sendFile(path.join(__dirname, 'public', 'display.html')));
 
 app.get('/display/login/:password', (req, res) => {
   const data = readData();
   const password = String(req.params.password || '');
-  if (!data.displayPassword) {
-    return res.redirect('/display');
-  }
-
+  if (!data.displayPassword) return res.redirect('/display');
   if (password !== String(data.displayPassword)) {
     return res.status(403).send(renderDisplayAutoLoginPage({ expiresAt: 0, version: data.displayAuthVersion || '1' }, '登入連結已失效，請重新產生 QRCode。'));
   }
-
   return res.type('text/html').send(renderDisplayAutoLoginPage({
     expiresAt: Date.now() + (12 * 60 * 60 * 1000),
     version: data.displayAuthVersion || '1'
@@ -469,16 +418,12 @@ app.get('/display/login/:password', (req, res) => {
 });
 
 app.get('/summary', (req, res) => {
-  if (!isAdminAuthenticated(req)) {
-    return res.redirect('/auth?next=%2Fsummary');
-  }
+  if (!isAdminAuthenticated(req)) return res.redirect('/auth?next=%2Fsummary');
   res.sendFile(path.join(__dirname, 'public', 'summary.html'));
 });
 
 app.get('/auth', (req, res) => {
-  if (isAdminAuthenticated(req)) {
-    return res.redirect(sanitizeNextPath(req.query.next));
-  }
+  if (isAdminAuthenticated(req)) return res.redirect(sanitizeNextPath(req.query.next));
   res.type('text/html');
   res.send(renderLoginPage(req.query.next, req.query.error));
 });
@@ -487,11 +432,8 @@ app.post('/auth/login', (req, res) => {
   const nextPath = sanitizeNextPath(req.body.next);
   const password = String(req.body.password || '');
   const expectedPassword = getAdminPassword();
-
-  if (!expectedPassword || password !== expectedPassword) {
-    return res.status(401).send(renderLoginPage(nextPath, '密碼錯誤，請重新輸入。'));
-  }
-
+  if (!expectedPassword) return res.redirect(nextPath);
+  if (password !== expectedPassword) return res.status(401).send(renderLoginPage(nextPath, '密碼錯誤，請重新輸入。'));
   setAdminAuthCookie(res);
   return res.redirect(nextPath);
 });
@@ -504,10 +446,7 @@ app.post('/auth/logout', (req, res) => {
 app.get('/config.js', (req, res) => {
   res.type('application/javascript');
   res.set('Cache-Control', 'no-store');
-  res.send(`window.APP_CONFIG = ${JSON.stringify({
-    questionCount: QUESTION_COUNT,
-    useLiveState: Boolean(UPSTREAM_STATE_URL)
-  })};`);
+  res.send(`window.APP_CONFIG = ${JSON.stringify({ questionCount: QUESTION_COUNT, useLiveState: Boolean(UPSTREAM_STATE_URL) })};`);
 });
 
 app.get('/api/live-state', async (req, res) => {
@@ -515,19 +454,10 @@ app.get('/api/live-state', async (req, res) => {
     const data = readData();
     return res.json({ data, summary: getSummary(data) });
   }
-
   try {
     const upstreamUrl = new URL('/api/state', UPSTREAM_STATE_URL).toString();
-    const upstreamResponse = await fetch(upstreamUrl, {
-      headers: {
-        Accept: 'application/json'
-      }
-    });
-
-    if (!upstreamResponse.ok) {
-      throw new Error(`上游狀態讀取失敗：${upstreamResponse.status}`);
-    }
-
+    const upstreamResponse = await fetch(upstreamUrl, { headers: { Accept: 'application/json' } });
+    if (!upstreamResponse.ok) throw new Error(`上游狀態讀取失敗：${upstreamResponse.status}`);
     const payload = await upstreamResponse.json();
     const localData = readData();
     return res.json(mergeLiveStateWithLocalAuth(payload, localData));
@@ -543,9 +473,7 @@ app.get('/api/state', (req, res) => {
 });
 
 app.post('/api/refresh-display-password', (req, res) => {
-  if (!isAdminAuthenticated(req)) {
-    return res.status(401).json({ error: '請先登入管理密碼。' });
-  }
+  if (!isAdminAuthenticated(req)) return res.status(401).json({ error: '請先登入管理密碼。' });
   const invalidateExistingCookies = Boolean(req.body && req.body.invalidateExistingCookies);
   const data = refreshDisplayPassword({ force: true, invalidateExistingCookies });
   const summary = getSummary(data);
@@ -553,28 +481,13 @@ app.post('/api/refresh-display-password', (req, res) => {
 });
 
 app.get('/api/display-password-qr', async (req, res) => {
-  if (!isAdminAuthenticated(req)) {
-    return res.status(401).json({ error: '請先登入管理密碼。' });
-  }
-
+  if (!isAdminAuthenticated(req)) return res.status(401).json({ error: '請先登入管理密碼。' });
   try {
     const data = readData();
     const password = data.displayPassword || '';
-    if (!password) {
-      return res.status(400).json({ error: '目前沒有可用的登入密碼。' });
-    }
-
+    if (!password) return res.status(400).json({ error: '目前沒有可用的登入密碼。' });
     const loginUrl = getDisplayLoginUrl(req, password);
-    const svg = await QRCode.toString(loginUrl, {
-      type: 'svg',
-      margin: 1,
-      width: 280,
-      color: {
-        dark: '#111827',
-        light: '#ffffff'
-      }
-    });
-
+    const svg = await QRCode.toString(loginUrl, { type: 'svg', margin: 1, width: 280, color: { dark: '#111827', light: '#ffffff' } });
     res.type('image/svg+xml');
     res.set('Cache-Control', 'no-store');
     res.send(svg);
@@ -585,47 +498,26 @@ app.get('/api/display-password-qr', async (req, res) => {
 });
 
 app.post('/api/update-session', (req, res) => {
-  if (!isAdminAuthenticated(req)) {
-    return res.status(401).json({ error: '請先登入管理密碼。' });
-  }
+  if (!isAdminAuthenticated(req)) return res.status(401).json({ error: '請先登入管理密碼。' });
   const { sessionNo, records } = req.body;
   const sessionNumber = Number(sessionNo);
-
-  if (!Number.isInteger(sessionNumber) || sessionNumber < 1 || sessionNumber > 6) {
-    return res.status(400).json({ error: '場次必須是 1 到 6。' });
-  }
-
-  if (!Array.isArray(records) || records.length !== 3) {
-    return res.status(400).json({ error: '每場次必須有 3 位考生資料。' });
-  }
-
+  if (!Number.isInteger(sessionNumber) || sessionNumber < 1 || sessionNumber > 6) return res.status(400).json({ error: '場次必須是 1 到 6。' });
+  if (!Array.isArray(records) || records.length !== 3) return res.status(400).json({ error: '每場次必須有 3 位考生資料。' });
   try {
     const cleanRecords = records.map((record, index) => {
       const questionNo = record.questionNo === null || record.questionNo === '' ? null : Number(record.questionNo);
       const absent = Boolean(record.absent);
-
-      if (!absent && (!Number.isInteger(questionNo) || questionNo < 1 || questionNo > QUESTION_COUNT)) {
-        throw new Error(`考生 ${index + 1} 到考時，題號必須是 1 到 ${QUESTION_COUNT}。`);
-      }
-
-      if (questionNo !== null && (!Number.isInteger(questionNo) || questionNo < 1 || questionNo > QUESTION_COUNT)) {
-        throw new Error(`考生 ${index + 1} 題號必須是 1 到 ${QUESTION_COUNT}。`);
-      }
-
-      return {
-        candidateNo: index + 1,
-        questionNo,
-        absent
-      };
+      const abandoned = absent ? false : Boolean(record.abandoned);
+      if (!absent && (!Number.isInteger(questionNo) || questionNo < 1 || questionNo > QUESTION_COUNT)) throw new Error(`崗位 ${index + 1} 未標記缺席時，題號必須是 1 到 ${QUESTION_COUNT}。`);
+      if (questionNo !== null && (!Number.isInteger(questionNo) || questionNo < 1 || questionNo > QUESTION_COUNT)) throw new Error(`崗位 ${index + 1} 題號必須是 1 到 ${QUESTION_COUNT}。`);
+      return { candidateNo: index + 1, questionNo, absent, abandoned };
     });
-
     const data = readData();
     const session = data.sessions.find(s => s.sessionNo === sessionNumber);
     session.records = cleanRecords;
     data.currentSession = sessionNumber;
     data.lastUpdatedAt = formatDateTime();
     writeData(data);
-
     const summary = getSummary(data);
     broadcast({ type: 'state', data, summary });
     res.json({ ok: true, data, summary });
@@ -635,14 +527,9 @@ app.post('/api/update-session', (req, res) => {
 });
 
 app.post('/api/set-current-session', (req, res) => {
-  if (!isAdminAuthenticated(req)) {
-    return res.status(401).json({ error: '請先登入管理密碼。' });
-  }
+  if (!isAdminAuthenticated(req)) return res.status(401).json({ error: '請先登入管理密碼。' });
   const sessionNo = Number(req.body.sessionNo);
-  if (!Number.isInteger(sessionNo) || sessionNo < 1 || sessionNo > 6) {
-    return res.status(400).json({ error: '場次必須是 1 到 6。' });
-  }
-
+  if (!Number.isInteger(sessionNo) || sessionNo < 1 || sessionNo > 6) return res.status(400).json({ error: '場次必須是 1 到 6。' });
   const data = readData();
   data.currentSession = sessionNo;
   data.lastUpdatedAt = formatDateTime();
@@ -653,9 +540,7 @@ app.post('/api/set-current-session', (req, res) => {
 });
 
 app.post('/api/reset', (req, res) => {
-  if (!isAdminAuthenticated(req)) {
-    return res.status(401).json({ error: '請先登入管理密碼。' });
-  }
+  if (!isAdminAuthenticated(req)) return res.status(401).json({ error: '請先登入管理密碼。' });
   const existingData = readData();
   const data = createDefaultData();
   data.displayPassword = existingData.displayPassword;
