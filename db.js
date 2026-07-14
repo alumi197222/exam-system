@@ -357,8 +357,8 @@ async function getHistoryStatistics(startDate, endDate, questionCount = 15) {
     if (absent) absentCount += 1;
     if (abandoned) abandonedCount += 1;
 
-    // 出題機率採「實際使用題目」口徑：缺席不計，棄考仍計入。
-    if (!absent && Number.isInteger(questionNo) && questionNo >= 1 && questionNo <= questionCount) {
+    // 歷史統計採「全部抽題結果」口徑：只要有題號就計入，缺席與棄考不再扣除。
+    if (Number.isInteger(questionNo) && questionNo >= 1 && questionNo <= questionCount) {
       countedDraws += 1;
       overall[questionNo - 1].count += 1;
 
