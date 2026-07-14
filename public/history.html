@@ -9,13 +9,16 @@
 <body>
   <div class="container">
     <div class="header"><div><h1>歷史出題統計</h1><div class="subtitle">統計 MariaDB 已歸檔資料；缺席不計，棄考仍計入。</div></div></div>
-    <div class="nav"><a href="/input">抽題登入</a><a href="/summary">補印結算</a><a href="/history">歷史統計</a></div>
+    <div class="nav"><a href="/input">抽題登入</a><a href="/summary">補印結算</a><a href="/history">歷史統計</a><a href="/backfill">補登過往題目</a></div>
 
     <div class="card">
-      <div class="row">
-        <div><label for="startDate">開始日期</label><input id="startDate" type="date"></div>
-        <div><label for="endDate">結束日期</label><input id="endDate" type="date"></div>
-        <button id="queryBtn">查詢</button>
+      <div class="row" style="justify-content:space-between; align-items:flex-end;">
+        <div class="row">
+          <div><label for="startDate">開始日期</label><input id="startDate" type="date"></div>
+          <div><label for="endDate">結束日期</label><input id="endDate" type="date"></div>
+          <button id="queryBtn">查詢</button>
+        </div>
+        <a href="/backfill" class="button-link">補登過往題目</a>
       </div>
       <div id="message" class="message"></div>
     </div>
