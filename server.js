@@ -49,13 +49,12 @@ function parseCookies(cookieHeader) {
 
 function isAdminAuthenticated(req) {
   const expectedToken = getAdminAuthToken();
-  // 未設定管理密碼時維持原有操作模式，不要求登入。
   if (!expectedToken) return true;
   return (parseCookies(req.headers.cookie).adminAuth || '') === expectedToken;
 }
 
 function sanitizeNextPath(nextPath) {
-  if (nextPath === '/input' || nextPath === '/summary' || nextPath === '/history' || nextPath === '/backfill' ) return nextPath;
+  if (nextPath === '/input' || nextPath === '/summary' || nextPath === '/summary2' || nextPath === '/history' || nextPath === '/backfill') return nextPath;
   return '/input';
 }
 
@@ -303,7 +302,6 @@ function readData() {
 }
 
 function writeData(data) {
-  // 當日操作永遠先寫 JSON，MariaDB 故障不會中斷現場登錄與顯示。
   ensureDataFile();
   const normalized = normalizeData(data);
   ensureDisplayPassword(normalized);
@@ -315,7 +313,6 @@ function getSummary(data) {
   for (const session of data.sessions) {
     for (const record of session.records) {
       const questionNo = Number(record.questionNo);
-      // 缺席不計；棄考代表題目已使用，因此仍列入補印與歷史出題統計。
       if (!record.absent && questionNo >= 1 && questionNo <= QUESTION_COUNT) counts[questionNo - 1].printCount += 1;
     }
   }
@@ -335,7 +332,6 @@ async function tryAutoArchive(data) {
     await historyDb.archiveExamDay(data, { questionCount: QUESTION_COUNT, method: 'automatic' });
     console.log(`已自動歸檔 ${data.date} 的考試資料。`);
   } catch (error) {
-    // 自動歸檔失敗僅記錄，不影響已成功寫入的 JSON 與 WebSocket 推播。
     console.error('自動歸檔失敗，當日 JSON 作業仍可繼續：', error.message || error);
   }
 }
@@ -392,6 +388,11 @@ app.get('/display', (req, res) => res.sendFile(path.join(__dirname, 'public', 'd
 app.get('/summary', (req, res) => {
   if (!isAdminAuthenticated(req)) return res.redirect('/auth?next=%2Fsummary');
   res.sendFile(path.join(__dirname, 'public', 'summary.html'));
+});
+
+app.get('/summary2', (req, res) => {
+  if (!isAdminAuthenticated(req)) return res.redirect('/auth?next=%2Fsummary2');
+  res.sendFile(path.join(__dirname, 'public', 'summary2.html'));
 });
 
 app.get('/history', (req, res) => {
@@ -567,7 +568,6 @@ app.post('/api/archive-today', async (req, res) => {
 app.post('/api/history/backfill', async (req, res) => {
   if (!isAdminAuthenticated(req)) return res.status(401).json({ error: '請先登入管理密碼。' });
   try {
-    // 補登過往資料直接寫入 MariaDB，不覆蓋也不影響今日現場作業用的 today.json。
     const archiveData = createArchiveDataFromRequest(req.body || {});
     const result = await historyDb.archiveExamDay(archiveData, { questionCount: QUESTION_COUNT, method: 'backfill' });
     res.json(result);
@@ -610,7 +610,6 @@ wss.on('connection', ws => {
 server.listen(PORT, () => {
   ensureDataFile();
 
-  // DB 初始化失敗不終止服務，確保 JSON 即時作業永遠可以啟動。
   historyDb.initialize()
     .then(result => console.log(result.enabled ? 'MariaDB 歷史歸檔已啟用。' : 'MariaDB 歷史歸檔未啟用。'))
     .catch(error => console.error('MariaDB 初始化失敗，JSON 作業仍可使用：', error.message || error));
