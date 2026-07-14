@@ -9,12 +9,31 @@
 <body>
   <div class="container">
     <div class="header">
-      <div><h1>補印結算</h1><div class="subtitle">缺席不列入補印；棄考仍列入補印與歷史統計。</div></div>
+      <div><h1>補印結算</h1><div class="subtitle">缺考不列入補印；棄考仍列入補印。</div></div>
       <div id="connectionStatus" class="status">連線中</div>
     </div>
     <div class="nav no-print">
       <a href="/input">抽題登入</a><a href="/display" target="_blank">顯示抽題結果</a><a href="/summary">補印結算</a><a href="/history">歷史統計</a>
     </div>
+
+    <div class="card">
+      <h2>今日補印清單</h2>
+      <p>資料日期：<strong id="dataDate">-</strong>　最後更新：<strong id="lastUpdatedAt">-</strong></p>
+      <p>顯示密碼：<strong id="displayPassword" class="display-password-badge">-</strong>　產生時間：<strong id="displayPasswordGeneratedAt">-</strong></p>
+      <div class="row">
+        <select id="refreshLoginAction"><option value="keep">保留原登入資訊</option><option value="delete">刪除原登入資訊</option></select>
+        <button id="refreshPasswordBtn" class="secondary">強制更新密碼</button>
+        <button id="showQrBtn" class="secondary">顯示 QRCode</button>
+      </div>
+      <div class="row no-print">
+        <button id="printBtn" class="print">列印補印清單</button>
+        <button id="resetBtn" class="danger">結算後清除今日資料</button>
+      </div>
+      <div class="table-wrap" style="margin-top:16px;"><table><thead><tr><th>題號</th><th>補印份數</th></tr></thead><tbody id="summaryBody"></tbody></table></div>
+      <div id="message" class="message no-print"></div>
+    </div>
+
+    <div class="card no-print"><h2>各場次紀錄</h2><div class="table-wrap"><table><thead><tr><th>場次</th><th>崗位1</th><th>崗位2</th><th>崗位3</th></tr></thead><tbody id="sessionBody"></tbody></table></div></div>
 
     <div class="card no-print">
       <h2>MariaDB 歷史歸檔</h2>
@@ -24,23 +43,6 @@
       <div class="row"><button id="archiveBtn" class="print">強制將目前抽題結果寫入 DB</button><button id="refreshArchiveStatusBtn" class="secondary">重新檢查</button></div>
       <div id="archiveMessage" class="message"></div>
     </div>
-
-    <div class="card">
-      <h2>今日補印清單</h2>
-      <p>資料日期：<strong id="dataDate">-</strong>　最後更新：<strong id="lastUpdatedAt">-</strong></p>
-      <p>顯示密碼：<strong id="displayPassword" class="display-password-badge">-</strong>　產生時間：<strong id="displayPasswordGeneratedAt">-</strong></p>
-      <div class="row no-print">
-        <select id="refreshLoginAction"><option value="keep">保留原登入資訊</option><option value="delete">刪除原登入資訊</option></select>
-        <button id="refreshPasswordBtn" class="secondary">強制更新密碼</button>
-        <button id="showQrBtn" class="secondary">顯示 QRCode</button>
-        <button id="printBtn" class="print">列印補印清單</button>
-        <button id="resetBtn" class="danger">結算後清除今日資料</button>
-      </div>
-      <div class="table-wrap" style="margin-top:16px;"><table><thead><tr><th>題號</th><th>補印份數</th></tr></thead><tbody id="summaryBody"></tbody></table></div>
-      <div id="message" class="message no-print"></div>
-    </div>
-
-    <div class="card no-print"><h2>各場次紀錄</h2><div class="table-wrap"><table><thead><tr><th>場次</th><th>崗位1</th><th>崗位2</th><th>崗位3</th></tr></thead><tbody id="sessionBody"></tbody></table></div></div>
   </div>
 
   <div id="qrModal" class="qr-modal no-print" aria-hidden="true"><div class="qr-modal-backdrop"></div><div class="qr-modal-panel"><div class="qr-modal-header"><div class="qr-modal-title">抽題顯示登入 QRCode</div><button id="closeQrBtn" class="secondary">關閉</button></div><div id="qrModalContent" class="qr-modal-content"></div></div></div>
