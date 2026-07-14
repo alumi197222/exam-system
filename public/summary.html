@@ -11,7 +11,7 @@
     <div class="header">
       <div>
         <h1>補印結算</h1>
-        <div class="subtitle">只統計到考考生抽到的題號，缺席者不列入補印。</div>
+        <div class="subtitle">缺席者不列入補印；棄考者視為已使用題目，會列入補印。</div>
       </div>
       <div id="connectionStatus" class="status">連線中</div>
     </div>
@@ -38,7 +38,6 @@
           </select>
         </div>
         <button id="refreshPasswordBtn" class="secondary">強制更新密碼</button>
-        
       </div>
       <button id="printBtn" class="print">列印補印清單</button>
       <button id="resetBtn" class="danger">結算後清除今日資料</button>
@@ -157,6 +156,14 @@
       qrModal.setAttribute('aria-hidden', 'true');
     }
 
+    function formatRecordForSummary(record) {
+      if (!record) return '-';
+      var text = formatQuestion(record.questionNo);
+      if (record.absent) return '<span class="absent-text">' + text + ' 缺席</span>';
+      if (record.abandoned) return '<span class="abandoned-text">' + text + ' 棄考</span>';
+      return text;
+    }
+
     function renderSummary(data, summary) {
       dataDate.textContent = data.date || '-';
       lastUpdatedAt.textContent = data.lastUpdatedAt || '-';
@@ -179,9 +186,7 @@
           for (var ri = 0; ri < session.records.length; ri++) {
             if (Number(session.records[ri].candidateNo) === i) { record = session.records[ri]; break; }
           }
-          if (!record) cells += '<td>-</td>';
-          else if (record.absent) cells += '<td><span class="absent-text">' + formatQuestion(record.questionNo) + ' 缺</span></td>';
-          else cells += '<td>' + formatQuestion(record.questionNo) + '</td>';
+          cells += '<td>' + formatRecordForSummary(record) + '</td>';
         }
         out2 += '<tr><td><strong>第 ' + session.sessionNo + ' 場（' + session.period + '）</strong></td>' + cells + '</tr>';
       }
@@ -204,21 +209,12 @@
       });
     });
 
-    if (showQrBtn) {
-      showQrBtn.addEventListener('click', function() {
-        openQrModal();
-      });
-    }
-
-    if (closeQrBtn) {
-      closeQrBtn.addEventListener('click', closeQrModal);
-    }
+    if (showQrBtn) showQrBtn.addEventListener('click', openQrModal);
+    if (closeQrBtn) closeQrBtn.addEventListener('click', closeQrModal);
 
     if (qrModal) {
       qrModal.addEventListener('click', function(event) {
-        if (event.target === qrModal || event.target.classList.contains('qr-modal-backdrop')) {
-          closeQrModal();
-        }
+        if (event.target === qrModal || event.target.classList.contains('qr-modal-backdrop')) closeQrModal();
       });
     }
 
