@@ -376,6 +376,35 @@ function createArchiveDataFromRequest(body) {
   };
 }
 
+function normalizeUpdateRecords(records) {
+  if (!Array.isArray(records) || records.length !== 3) {
+    throw new Error('每場次必須送出 3 個崗位資料。');
+  }
+
+  let hasAnyInput = false;
+  const cleanRecords = records.map((record, index) => {
+    const candidateNo = index + 1;
+    const rawQuestion = record && record.questionNo;
+    const questionNo = rawQuestion === null || rawQuestion === undefined || rawQuestion === '' ? null : Number(rawQuestion);
+    const absent = Boolean(record && record.absent);
+    const abandoned = absent ? false : Boolean(record && record.abandoned);
+
+    if (questionNo !== null && (!Number.isInteger(questionNo) || questionNo < 1 || questionNo > QUESTION_COUNT)) {
+      throw new Error(`崗位 ${candidateNo} 題號必須是 1 到 ${QUESTION_COUNT}。`);
+    }
+
+    if (abandoned && questionNo === null) {
+      throw new Error(`崗位 ${candidateNo} 勾選棄考時，仍需輸入抽到的題號。`);
+    }
+
+    if (absent || abandoned || questionNo !== null) hasAnyInput = true;
+    return { candidateNo, questionNo, absent, abandoned };
+  });
+
+  if (!hasAnyInput) throw new Error('至少需要輸入一個崗位資料才可以送出。');
+  return cleanRecords;
+}
+
 app.get('/', (req, res) => res.redirect('/display'));
 
 app.get('/input', (req, res) => {
@@ -480,26 +509,13 @@ app.get('/api/live-state', async (req, res) => {
 app.post('/api/update-session', async (req, res) => {
   if (!isAdminAuthenticated(req)) return res.status(401).json({ error: '請先登入管理密碼。' });
   const sessionNumber = Number(req.body.sessionNo);
-  const records = req.body.records;
   if (!Number.isInteger(sessionNumber) || sessionNumber < 1 || sessionNumber > 6) return res.status(400).json({ error: '場次必須是 1 到 6。' });
-  if (!Array.isArray(records) || records.length !== 3) return res.status(400).json({ error: '每場次必須有 3 位考生資料。' });
 
   try {
-    const cleanRecords = records.map((record, index) => {
-      const questionNo = record.questionNo === null || record.questionNo === '' ? null : Number(record.questionNo);
-      const absent = Boolean(record.absent);
-      const abandoned = absent ? false : Boolean(record.abandoned);
-      if (!absent && (!Number.isInteger(questionNo) || questionNo < 1 || questionNo > QUESTION_COUNT)) {
-        throw new Error(`崗位 ${index + 1} 未標記缺席時，題號必須是 1 到 ${QUESTION_COUNT}。`);
-      }
-      if (questionNo !== null && (!Number.isInteger(questionNo) || questionNo < 1 || questionNo > QUESTION_COUNT)) {
-        throw new Error(`崗位 ${index + 1} 題號必須是 1 到 ${QUESTION_COUNT}。`);
-      }
-      return { candidateNo: index + 1, questionNo, absent, abandoned };
-    });
-
+    const cleanRecords = normalizeUpdateRecords(req.body.records);
     const data = readData();
-    data.sessions.find(item => item.sessionNo === sessionNumber).records = cleanRecords;
+    const session = data.sessions.find(item => Number(item.sessionNo) === sessionNumber);
+    session.records = cleanRecords;
     data.currentSession = sessionNumber;
     data.lastUpdatedAt = formatDateTime();
     writeData(data);
